@@ -22,6 +22,8 @@ class LLMWebSearcher:
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         })
+        # Check if model supports web search (Claude models)
+        self.supports_web_search = 'claude' in self.llm.model.lower()
 
     def search(self, query: str, max_results: int = 20) -> List[Dict]:
         """
@@ -34,15 +36,39 @@ class LLMWebSearcher:
         Returns:
             List of patent dictionaries
         """
-        print(f"🔍 Using LLM web search for: '{query}'")
+        print(f"🔍 Using LLM {'web search' if self.supports_web_search else 'knowledge'} for: '{query}'")
 
         # Use LLM to search and extract patent information
-        search_prompt = f"""
-You are a patent search assistant. Search for patents related to: "{query}"
+        if self.supports_web_search:
+            # Claude with web search - use natural language prompt
+            search_prompt = f"""
+Search the web for US patents related to: "{query}"
 
-Your task:
-1. Identify relevant US patents that match this query
-2. For each patent, provide the following information in structured format
+Find up to {max_results} relevant patents and provide information about each patent including:
+- Patent number (format: US1234567B2 or US20200123456A1)
+- Title
+- Brief abstract/description
+- Why it's relevant to the query
+
+Return the results as a JSON array with this structure:
+[
+  {{
+    "patent_number": "US1234567B2",
+    "title": "Patent title here",
+    "url": "https://patents.google.com/patent/US1234567B2",
+    "abstract": "Brief description of what the patent covers",
+    "relevance": "Why this patent is relevant to the query"
+  }}
+]
+
+Focus on recent patents (2015-2024) when possible.
+Search Google Patents or USPTO databases.
+Return ONLY the JSON array, nothing else.
+"""
+        else:
+            # OpenAI or other models without web search - use knowledge-based prompt
+            search_prompt = f"""
+You are a patent search assistant. Based on your knowledge, identify relevant US patents related to: "{query}"
 
 Return a JSON array of up to {max_results} patents with this structure:
 [
@@ -63,7 +89,13 @@ Return ONLY the JSON array, nothing else.
 """
 
         try:
-            response = self.llm.generate(search_prompt, max_tokens=2000, temperature=0.5)
+            response = self.llm.generate(
+                search_prompt,
+                max_tokens=2000,
+                temperature=0.5,
+                use_web_search=self.supports_web_search,
+                max_web_searches=5
+            )
 
             # Parse JSON response
             response = response.strip()
@@ -227,8 +259,32 @@ Return ONLY the JSON array, nothing else.
             return {'patent_number': patent_number, 'url': url, 'error': str(e)}
 
     def _llm_extract_details(self, patent_number: str, html_content: str) -> Dict:
-        """Use LLM to extract patent details from HTML"""
-        prompt = f"""
+        """Use LLM to extract patent details from HTML or web search"""
+
+        if self.supports_web_search:
+            # Use web search to find patent details directly
+            prompt = f"""
+Search the web for detailed information about patent {patent_number}.
+
+Find and return a JSON object with:
+{{
+  "patent_number": "{patent_number}",
+  "title": "patent title",
+  "abstract": "patent abstract/summary",
+  "publication_date": "YYYY-MM-DD",
+  "inventors": ["inventor names"],
+  "assignee": "assignee/company name",
+  "claim_1": "first independent claim text",
+  "url": "https://patents.google.com/patent/{patent_number}"
+}}
+
+Search Google Patents or USPTO database for accurate information.
+Return ONLY the JSON object.
+"""
+            use_search = True
+        else:
+            # Extract from HTML content
+            prompt = f"""
 Extract patent information from this HTML content for patent {patent_number}.
 
 HTML excerpt:
@@ -248,9 +304,16 @@ Extract and return a JSON object with:
 
 Return ONLY the JSON object.
 """
+            use_search = False
 
         try:
-            response = self.llm.generate(prompt, max_tokens=1000, temperature=0.2)
+            response = self.llm.generate(
+                prompt,
+                max_tokens=1000,
+                temperature=0.2,
+                use_web_search=use_search,
+                max_web_searches=3
+            )
             response = response.strip()
             if response.startswith('```'):
                 response = response.split('```')[1]
@@ -268,7 +331,35 @@ Return ONLY the JSON object.
 
     def _llm_generate_details(self, patent_number: str) -> Dict:
         """Use LLM to generate plausible patent details based on patent number"""
-        prompt = f"""
+
+        if self.supports_web_search:
+            # Use web search as last resort
+            prompt = f"""
+Search the web for information about patent {patent_number}.
+
+Return a JSON object with:
+{{
+  "patent_number": "{patent_number}",
+  "title": "patent title",
+  "abstract": "patent abstract/description",
+  "publication_date": "YYYY-MM-DD",
+  "inventors": ["inventor names"],
+  "assignee": "assignee/company",
+  "claim_1": "first claim or N/A",
+  "url": "https://patents.google.com/patent/{patent_number}"
+}}
+
+If you cannot find the patent, return:
+- title: "Patent {patent_number}"
+- abstract: "Information not available"
+- Other fields: "N/A" or empty arrays
+
+Return ONLY the JSON object.
+"""
+            use_search = True
+        else:
+            # Use knowledge-based generation
+            prompt = f"""
 For patent {patent_number}, provide plausible patent information based on your knowledge.
 
 Return a JSON object with:
@@ -290,9 +381,16 @@ If you don't have information about this patent, provide:
 
 Return ONLY the JSON object.
 """
+            use_search = False
 
         try:
-            response = self.llm.generate(prompt, max_tokens=800, temperature=0.3)
+            response = self.llm.generate(
+                prompt,
+                max_tokens=800,
+                temperature=0.3,
+                use_web_search=use_search,
+                max_web_searches=2
+            )
             response = response.strip()
             if response.startswith('```'):
                 response = response.split('```')[1]
@@ -302,7 +400,10 @@ Return ONLY the JSON object.
             details = json.loads(response)
             details['patent_number'] = patent_number
             details['url'] = f"https://patents.google.com/patent/{patent_number}"
-            details['source'] = 'llm_generated'
+            if self.supports_web_search:
+                details['source'] = 'web_search'
+            else:
+                details['source'] = 'llm_generated'
             return details
 
         except Exception as e:
