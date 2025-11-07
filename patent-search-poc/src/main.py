@@ -10,29 +10,42 @@ This POC demonstrates:
 """
 import json
 import os
+import argparse
 from typing import Dict, List
 from dotenv import load_dotenv
 from llm_client import LLMClient
 from patent_search import GooglePatentsSearcher
+from llm_web_searcher import LLMWebSearcher
 import time
 
 
 class PatentSearchPOC:
     """Simple POC for patent prior art search"""
-    
-    def __init__(self):
+
+    def __init__(self, use_llm_search: bool = False, model: str = None, verbose: bool = False):
         """Initialize POC"""
         load_dotenv()
-        self.llm = LLMClient()
-        self.searcher = GooglePatentsSearcher()
+        self.llm = LLMClient(model=model)
+        self.verbose = verbose
+
+        # Choose searcher based on flag
+        if use_llm_search:
+            print("🤖 Using LLM-based web search")
+            self.searcher = LLMWebSearcher(self.llm)
+        else:
+            print("🌐 Using direct web scraping")
+            self.searcher = GooglePatentsSearcher()
     
-    def run(self, invention_file: str, output_file: str = None):
+    def run(self, invention_file: str, output_file: str = None,
+            max_patents: int = 15, max_queries: int = 3):
         """
         Run complete prior art search
-        
+
         Args:
             invention_file: Path to invention JSON file
             output_file: Path to output results (optional)
+            max_patents: Maximum number of patents to analyze
+            max_queries: Maximum number of search queries to execute
         """
         print("=" * 80)
         print("PATENT PRIOR ART SEARCH POC")
@@ -53,10 +66,10 @@ class PatentSearchPOC:
         # Step 3: Search patents
         print("\n[STEP 3] Searching patent databases...")
         all_patents = []
-        for query in queries[:3]:  # Limit to top 3 queries for POC
+        for query in queries[:max_queries]:  # Use parameter
             patents = self.searcher.search(query, max_results=10)
             all_patents.extend(patents)
-            time.sleep(2)  # Be polite to Google
+            time.sleep(2)  # Be polite to services
         
         # Deduplicate
         unique_patents = self._deduplicate_patents(all_patents)
@@ -65,8 +78,8 @@ class PatentSearchPOC:
         # Step 4: Fetch patent details
         print("\n[STEP 4] Fetching patent details...")
         detailed_patents = []
-        for i, patent in enumerate(unique_patents[:15], 1):  # Limit to 15 for POC
-            print(f"   {i}/{min(15, len(unique_patents))}", end='\r')
+        for i, patent in enumerate(unique_patents[:max_patents], 1):  # Use parameter
+            print(f"   {i}/{min(max_patents, len(unique_patents))}", end='\r')
             details = self.searcher.get_patent_details(patent['patent_number'])
             detailed_patents.append(details)
             time.sleep(1)  # Be polite
@@ -219,17 +232,26 @@ Return ONLY valid JSON in this exact format:
                 response = response.split('```')[1]
                 if response.startswith('json'):
                     response = response[4:]
-            
+
             analysis = json.loads(response)
+
+            # ✅ Preserve URL and patent details from source data
+            analysis['url'] = patent.get('url', f"https://patents.google.com/patent/{patent.get('patent_number', '')}")
+            analysis['patent_number'] = patent.get('patent_number', 'Unknown')
+            analysis['title'] = patent.get('title', 'N/A')
+
             return analysis
-            
+
         except Exception as e:
             print(f"\n   ⚠ Analysis error for {patent.get('patent_number', 'unknown')}: {e}")
             return {
                 'relevance_score': 0.0,
                 'classification': 'not_relevant',
                 'analysis': 'Analysis failed',
-                'key_differences': 'Unknown'
+                'key_differences': 'Unknown',
+                'url': patent.get('url', ''),
+                'patent_number': patent.get('patent_number', 'Unknown'),
+                'title': patent.get('title', 'N/A')
             }
     
     def _generate_report(self, invention: Dict, patents: List[Dict]) -> Dict:
@@ -317,16 +339,93 @@ Return ONLY valid JSON in this exact format:
         print("\n" + "=" * 80)
 
 
+def parse_args():
+    """Parse command line arguments"""
+    parser = argparse.ArgumentParser(
+        description='Patent Prior Art Search using LLM',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Basic usage with LLM web search
+  python src/main.py --llm-web-search --input data/sample_invention.json
+
+  # Advanced usage
+  python src/main.py --input data/sample_invention.json --output results/my_analysis.json --max-patents 20 --max-queries 5
+
+  # Use specific model
+  python src/main.py --llm-web-search --input data/sample_invention.json --model gpt-4o
+        """
+    )
+
+    parser.add_argument(
+        '--input', '-i',
+        type=str,
+        default='data/sample_invention.json',
+        help='Path to invention disclosure JSON file (default: data/sample_invention.json)'
+    )
+
+    parser.add_argument(
+        '--output', '-o',
+        type=str,
+        default='output/results.json',
+        help='Path to output results JSON file (default: output/results.json)'
+    )
+
+    parser.add_argument(
+        '--max-patents',
+        type=int,
+        default=15,
+        help='Maximum number of patents to analyze (default: 15)'
+    )
+
+    parser.add_argument(
+        '--max-queries',
+        type=int,
+        default=3,
+        help='Maximum search queries to execute (default: 3)'
+    )
+
+    parser.add_argument(
+        '--llm-web-search',
+        action='store_true',
+        help='Use LLM-based web search instead of direct scraping (recommended)'
+    )
+
+    parser.add_argument(
+        '--model',
+        type=str,
+        choices=['gpt-4o-mini', 'gpt-4o', 'claude-sonnet-4', 'claude-opus-4'],
+        help='LLM model to use (overrides .env DEFAULT_MODEL)'
+    )
+
+    parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Enable verbose output'
+    )
+
+    return parser.parse_args()
+
+
 def main():
     """Run the POC"""
-    poc = PatentSearchPOC()
-    
+    args = parse_args()
+
+    # Create POC instance with arguments
+    poc = PatentSearchPOC(
+        use_llm_search=args.llm_web_search,
+        model=args.model,
+        verbose=args.verbose
+    )
+
     # Run search
     report = poc.run(
-        invention_file='data/sample_invention.json',
-        output_file='output/results.json'
+        invention_file=args.input,
+        output_file=args.output,
+        max_patents=args.max_patents,
+        max_queries=args.max_queries
     )
-    
+
     print("\n✅ POC completed successfully!")
 
 
