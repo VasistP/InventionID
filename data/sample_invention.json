@@ -1,0 +1,28 @@
+{
+    "invention_id": "INV-2024-001",
+    "invention_name": "AI-Powered Protein Structure Prediction System",
+    "technical_description": "A deep learning system that uses transformer neural networks to predict three-dimensional protein structures from amino acid sequences. The system employs a novel attention mechanism that captures long-range interactions between amino acids and uses multiple sequence alignments as input features. The model is trained on a large dataset of known protein structures from the Protein Data Bank.",
+    "problem_statement": "Current protein structure prediction methods are computationally expensive and often inaccurate for proteins without close homologs in existing databases. Traditional methods like homology modeling fail when no similar structures exist, and ab initio methods are too slow for practical use.",
+    "solution_approach": "We address this by using a transformer-based architecture that learns patterns directly from sequence data. The system uses multi-head attention to model residue interactions at different scales and incorporates evolutionary information through multiple sequence alignments. This allows fast, accurate predictions even for novel protein families.",
+    "key_technical_features": [
+        "Transformer neural network architecture for protein structure prediction",
+        "Novel attention mechanism capturing long-range amino acid interactions",
+        "Integration of multiple sequence alignment data",
+        "Training on Protein Data Bank structures",
+        "End-to-end learning without manual feature engineering"
+    ],
+    "statutory_category": "Process",
+    "domain_classification": "AI/Biotech",
+    "inventor_keywords": [
+        "protein folding",
+        "deep learning",
+        "transformer",
+        "attention mechanism",
+        "structure prediction",
+        "amino acid sequence"
+    ],
+    "context": {
+        "document_section": "Section 4.2 - Novel AI Methods",
+        "confidence_score": 0.92
+    }
+}

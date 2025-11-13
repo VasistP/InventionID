@@ -1,0 +1,15 @@
+{
+  "invention": {
+    "name": "AI-Powered Protein Structure Prediction System",
+    "domain": "AI/Biotech",
+    "description": "A deep learning system that uses transformer neural networks to predict three-dimensional protein structures from amino acid sequences. The system employs a novel attention mechanism that captures lon"
+  },
+  "search_metadata": {
+    "total_patents_found": 0,
+    "max_patents_fetched": 1,
+    "rate_limiting_enabled": true,
+    "detailed_analysis_enabled": false
+  },
+  "patents": [],
+  "note": "Lightweight search only (IDs/URLs/titles). Enable USE_DETAILED_ANALYSIS for full patent content and relevance analysis."
+}

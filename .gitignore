@@ -1,0 +1,19 @@
+# Byte-compiled / cache
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# Virtual envs (optional but common)
+venv/
+.venv/
+env/
+
+# Environment files (NEVER commit secrets)
+.env
+.env.*
+*.env
+
+# VS Code & OS junk (optional)
+.vscode/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,36 @@
+{
+  "invention": {
+    "id": "INV-2024-001",
+    "name": "AI-Powered Protein Structure Prediction System",
+    "domain": "AI/Biotech",
+    "statutory_category": "Process"
+  },
+  "search_metadata": {
+    "search_date": "2025-11-07 11:43:27",
+    "search_method": "LLM Web Search",
+    "search_mode": "standard"
+  },
+  "summary": {
+    "total_patents_analyzed": 5,
+    "blocking_patents": 0,
+    "relevant_patents": 0,
+    "related_patents": 0,
+    "not_relevant_patents": 5
+  },
+  "risk_assessment": {
+    "overall_risk": "LOW - No significant blocking art found",
+    "risk_level": "LOW",
+    "key_concerns": [
+      "No significant blocking or highly relevant prior art identified"
+    ]
+  },
+  "results": {
+    "blocking": [],
+    "relevant": [],
+    "related": []
+  },
+  "recommendations": [
+    "Strong patentability position - proceed with patent application",
+    "Continue monitoring for new publications in this technical space"
+  ]
+}
