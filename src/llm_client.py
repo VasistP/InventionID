@@ -129,18 +129,24 @@ class LLMClient:
             raise ValueError("GEMINI_API_KEY not set")
 
         if files:
+            uploaded_files = []
             for file in files:
-                myfile = client.files.upload(file)
-            content = [prompt, myfile]
+                uploaded = self.gemini.files.upload(file=file)  # <-- FIX
+                uploaded_files.append(uploaded)
+
+            # Combine prompt + file(s)
+            content = [prompt] + uploaded_files
         else:
             content = prompt
 
-        grounding_tool = types.Tool(
-            google_search=types.GoogleSearch()
-        )
+        if not self.tools:
+            grounding_tool = types.Tool(
+                google_search=types.GoogleSearch()
+            )
+            self.tools = [grounding_tool]
 
         config = types.GenerateContentConfig(
-            tools=[grounding_tool],
+            tools=self.tools,
             temperature=temperature,
             max_output_tokens=max_tokens
         )

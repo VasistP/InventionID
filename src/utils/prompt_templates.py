@@ -87,6 +87,53 @@ Format:
 """
 
     @staticmethod
+    def get_inventions() -> str:
+
+        return f"""Analyze this document and identify all distinct inventions described.
+
+In the uploaded document, for EACH invention found, extract the following information:
+
+1. invention_id: Generate a unique ID (format: INV-YYYY-NNN)
+2. invention_name: Clear, concise name (max 10 words)
+3. technical_description: Detailed technical description (2-4 sentences)
+4. problem_statement: What problem does it solve? (2-3 sentences)
+5. solution_approach: How does it solve the problem? (2-3 sentences)
+6. key_technical_features: List of 3-7 key technical features
+7. statutory_category: One of: "Process", "Machine", "Manufacture", "Composition of Matter"
+8. domain_classification: Technical domain (e.g., "AI/ML", "Biotech", "Software", "Hardware")
+9. inventor_keywords: 5-10 relevant technical keywords
+10. context:
+    - document_section: Where in the document (e.g., "Section 3.2")
+    - confidence_score: Your confidence (0.0 to 1.0)
+
+IMPORTANT: Return ONLY a JSON object with inventions numbered as keys ("1", "2", etc.).
+If no clear inventions are found, return an empty object: {{}}.
+
+Format:
+```json
+{{
+  "1": {{
+    "invention_id": "INV-2024-001",
+    "invention_name": "...",
+    "technical_description": "...",
+    "problem_statement": "...",
+    "solution_approach": "...",
+    "key_technical_features": ["feature1", "feature2", ...],
+    "statutory_category": "Process",
+    "domain_classification": "...",
+    "inventor_keywords": ["keyword1", "keyword2", ...],
+    "context": {{
+            "document_section": "...",
+        "confidence_score": 0.85
+    }}
+  }},
+  "2": {{
+    ...
+  }}
+}}
+```"""
+
+    @staticmethod
     def fetch_patent_details_single(patent_number: str) -> str:
         """
         Generate prompt for fetching details of a single patent
