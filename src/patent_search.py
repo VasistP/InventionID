@@ -20,20 +20,20 @@ class GooglePatentsSearcher:
 
     BASE_URL = "https://patents.google.com"
 
-    def __init__(self):
+    def __init__(self, rate_limiter=None):
         """
         Initialize searcher with LLM web search
         """
 
-        if os.getenv('ANTHROPIC_API_KEY'):
-            self.llm = LLMClient(tools=[{
-                "type": "web_search_20250305",
-                "name": "web_search",
-                "max_uses": 5,
-                "allowed_domains": ["patents.google.com"]
-            }])
-        else:
-            self.llm = LLMClient()
+        # if os.getenv('ANTHROPIC_API_KEY'):
+        #     self.llm = LLMClient(tools=[{
+        #         "type": "web_search_20250305",
+        #         "name": "web_search",
+        #         "max_uses": 5,
+        #         "allowed_domains": ["patents.google.com"]
+        #     }])
+        # else:
+        self.llm = LLMClient(rate_limiter=rate_limiter)
 
     def search(self, query: str, max_results: int = 20) -> List[Dict]:
         """

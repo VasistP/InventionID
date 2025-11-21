@@ -21,22 +21,6 @@ from utils.prompt_templates import PromptTemplates
 sys.path.append(str(Path(__file__).parent / 'src'))
 
 
-# PDF parsing libraries
-# try:
-#     import PyPDF2
-#     PDF_LIBRARY = 'pypdf2'
-# except ImportError:
-#     try:
-#         import pdfplumber
-#         PDF_LIBRARY = 'pdfplumber'
-#     except ImportError:
-#         print("⚠ Warning: No PDF library found. Install PyPDF2 or pdfplumber:")
-#         print("  pip install PyPDF2")
-#         print("  or")
-#         print("  pip install pdfplumber")
-#         PDF_LIBRARY = None
-
-
 class InventionExtractor:
     """Extract structured invention data from PDF documents"""
 
@@ -103,7 +87,7 @@ class InventionExtractor:
             Dictionary with invention data
         """
         prompt = PromptTemplates.get_inventions()
-        self.llm = LLMClient()
+        self.llm = LLMClient(tools=[])
         files = [
             pdf_path
         ]

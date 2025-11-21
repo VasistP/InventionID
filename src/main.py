@@ -10,7 +10,9 @@ Simplified version using:
 import json
 import os
 from typing import Dict, List
+from pathlib import Path
 from dotenv import load_dotenv
+from inventionID import InventionExtractor
 
 # Import core modules
 from llm_client import LLMClient
@@ -29,11 +31,6 @@ class PatentSearchSystem:
         """Initialize system with configuration"""
         load_dotenv()
 
-        # Core components
-        self.llm = LLMClient()
-        self.searcher = GooglePatentsSearcher()
-
-        # Optional components based on config
         self.rate_limiter = None
         if config.USE_RATE_LIMITING:
             self.rate_limiter = RateLimiter(
@@ -42,6 +39,61 @@ class PatentSearchSystem:
                 verbose=config.LOG_RATE_LIMIT_WAITS
             )
             print(f"Rate limiting enabled: {config.RATE_LIMIT_RPM} RPM")
+
+        # Core components
+        self.llm = LLMClient(
+            rate_limiter=self.rate_limiter if config.USE_RATE_LIMITING else None)
+        self.searcher = GooglePatentsSearcher(
+            rate_limiter=self.rate_limiter if config.USE_RATE_LIMITING else None)
+
+        # Optional components based on config
+
+    def _load_or_extract_invention(self, input_file: str) -> Dict:
+        """
+        Load invention from JSON or extract from PDF
+
+        Args:
+            input_file: Path to JSON or PDF file
+
+        Returns:
+            Dictionary containing invention data
+        """
+        file_path = Path(input_file)
+
+        if not file_path.exists():
+            raise FileNotFoundError(f"Input file not found: {input_file}")
+
+        # Check file extension
+        if file_path.suffix.lower() == '.pdf':
+            print(f"\n📄 PDF detected: Extracting invention data...")
+            print("-" * 80)
+
+            # Extract invention from PDF
+            extractor = InventionExtractor(output_dir="data")
+            inventions = extractor.process_inventions(
+                str(file_path),
+                output_filename=None
+            )
+
+            if not inventions:
+                raise ValueError("No inventions found in PDF")
+
+            # Use first invention if multiple found
+            invention_key = list(inventions.keys())[0]
+            invention = inventions[invention_key]
+
+            print(f"✅ Extracted invention: {invention['invention_name']}")
+            print("-" * 80)
+
+            return invention
+
+        elif file_path.suffix.lower() == '.json':
+            print(f"\n📋 JSON detected: Loading invention data...")
+            return self._load_invention(input_file)
+
+        else:
+            raise ValueError(
+                f"Unsupported file type: {file_path.suffix}. Use .pdf or .json")
 
     def run(self, invention_file: str, output_file: str = None):
         """
@@ -56,7 +108,7 @@ class PatentSearchSystem:
         print("=" * 80)
 
         # Load invention
-        invention = self._load_invention(invention_file)
+        invention = self._load_or_extract_invention(invention_file)
         print(f"\nLoaded: {invention['invention_name']}")
 
         # Generate search queries
@@ -262,7 +314,7 @@ def main():
     parser.add_argument(
         '--input',
         default='data/sample_invention.json',
-        help='Path to invention JSON file'
+        help='Path to invention JSON or PDF file'
     )
     parser.add_argument(
         '--output',
@@ -297,12 +349,12 @@ def main():
 
     # Show what's enabled
     print("\n💡 Current Configuration:")
-    print(f"  Rate Limiting: {'' if config.USE_RATE_LIMITING else '✗'}")
-    print(f"  Batching: {'' if config.USE_BATCHING else '✗'}")
-    print(f"  Summarization: {'' if config.USE_SUMMARIZATION else '✗'}")
-    print(f"  Embedding Filter: {'' if config.USE_EMBEDDING_FILTER else '✗'}")
+    print(f"  Rate Limiting: {'' if config.USE_RATE_LIMITING else 'X'}")
+    print(f"  Batching: {'' if config.USE_BATCHING else 'X'}")
+    print(f"  Summarization: {'' if config.USE_SUMMARIZATION else 'X'}")
+    print(f"  Embedding Filter: {'' if config.USE_EMBEDDING_FILTER else 'X'}")
     print(
-        f"  Detailed Analysis: {'' if config.USE_DETAILED_ANALYSIS else '✗'}")
+        f"  Detailed Analysis: {'' if config.USE_DETAILED_ANALYSIS else 'X'}")
 
 
 if __name__ == "__main__":

@@ -22,9 +22,9 @@ USE_DETAILED_ANALYSIS = False
 # ============================================================================
 
 # Rate limit settings (to avoid hitting API limits)
-RATE_LIMIT_RPM = 10                 # Requests per minute (10 RPM for testing)
+RATE_LIMIT_RPM = 2                 # Requests per minute (10 RPM for testing)
 # Minimum seconds between requests (60/10 = 6s)
-MIN_REQUEST_INTERVAL = 6.0
+MIN_REQUEST_INTERVAL = 30.0
 
 # ============================================================================
 # PATENT PROCESSING LIMITS
@@ -32,7 +32,7 @@ MIN_REQUEST_INTERVAL = 6.0
 
 # How many patents to process at each stage
 # Maximum patents from search (set to 1 for testing)
-MAX_PATENTS_TO_FETCH = 1
+MAX_PATENTS_TO_FETCH = 5
 # Maximum patents after filtering (set to 1 for testing)
 MAX_PATENTS_TO_ANALYZE = 1
 # Maximum patents for deep analysis (set to 1 for testing)

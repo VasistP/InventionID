@@ -7,12 +7,13 @@ from anthropic import Anthropic
 from openai import OpenAI
 from google import genai
 from google.genai import types
+from modules.rate_limiter import RateLimiter
 
 
 class LLMClient:
     """Unified LLM client"""
 
-    def __init__(self, model: str = None, tools: Optional[list] = None):
+    def __init__(self, model: str = None, tools: Optional[list] = None, rate_limiter=None):
         """
         Initialize LLM client
 
@@ -22,6 +23,7 @@ class LLMClient:
         """
 
         self.tools = tools
+        self.rate_limiter = rate_limiter
 
         # Initialize clients
         anthropic_key = os.getenv('ANTHROPIC_API_KEY')
@@ -82,6 +84,9 @@ class LLMClient:
         if not self.anthropic:
             raise ValueError("ANTHROPIC_API_KEY not set")
 
+        if self.rate_limiter:
+            self.rate_limiter.acquire()
+
         if self.tools == None:
             self. tools = [{
                 "type": "web_search_20250305",
@@ -112,6 +117,9 @@ class LLMClient:
         if not self.openai:
             raise ValueError("OPENAI_API_KEY not set")
 
+        if self.rate_limiter:
+            self.rate_limiter.acquire()
+
         response = self.openai.chat.completions.create(
             model=self.model,
             max_tokens=max_tokens,
@@ -128,6 +136,9 @@ class LLMClient:
         if not self.gemini:
             raise ValueError("GEMINI_API_KEY not set")
 
+        if self.rate_limiter:
+            self.rate_limiter.acquire()
+
         if files:
             uploaded_files = []
             for file in files:
@@ -139,7 +150,7 @@ class LLMClient:
         else:
             content = prompt
 
-        if not self.tools:
+        if self.tools == None:
             grounding_tool = types.Tool(
                 google_search=types.GoogleSearch()
             )
