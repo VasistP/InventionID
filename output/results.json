@@ -1,36 +1,37 @@
 {
+  "invention_evaluation": {},
   "invention": {
-    "id": "INV-2024-001",
-    "name": "AI-Powered Protein Structure Prediction System",
-    "domain": "AI/Biotech",
-    "statutory_category": "Process"
+    "name": "Integrated System for Catheter Biofilm Detection and Treatment",
+    "domain": "Medical Devices, Bioelectronics, Clinical Microbiology, Wireless Communication, IoT in Healthcare",
+    "description": "This integrated system seamlessly incorporates flexible, interdigitated electrodes (IDEs) into a commercial Foley urinary catheter via a 3D-printed insert. It performs real-time impedance-based sensin"
   },
   "search_metadata": {
-    "search_date": "2025-11-07 11:43:27",
-    "search_method": "LLM Web Search",
-    "search_mode": "standard"
+    "total_patents_found": 4,
+    "max_patents_fetched": 5,
+    "rate_limiting_enabled": true,
+    "detailed_analysis_enabled": false
   },
-  "summary": {
-    "total_patents_analyzed": 5,
-    "blocking_patents": 0,
-    "relevant_patents": 0,
-    "related_patents": 0,
-    "not_relevant_patents": 5
-  },
-  "risk_assessment": {
-    "overall_risk": "LOW - No significant blocking art found",
-    "risk_level": "LOW",
-    "key_concerns": [
-      "No significant blocking or highly relevant prior art identified"
-    ]
-  },
-  "results": {
-    "blocking": [],
-    "relevant": [],
-    "related": []
-  },
-  "recommendations": [
-    "Strong patentability position - proceed with patent application",
-    "Continue monitoring for new publications in this technical space"
-  ]
+  "patents": [
+    {
+      "patent_number": "US11723605B2",
+      "title": "Catheter biofilm detection and treatment system and method",
+      "url": "https://patents.google.com/patent/US11723605B2/en"
+    },
+    {
+      "patent_number": "US10786603B2",
+      "title": "Foley catheter with impedance sensing for biofilm detection",
+      "url": "https://patents.google.com/patent/US10786603B2/en"
+    },
+    {
+      "patent_number": "US10123456B2",
+      "title": "Catheter with bioelectric effect for biofilm reduction",
+      "url": "https://patents.google.com/patent/US10123456B2/en"
+    },
+    {
+      "patent_number": "US10165971B2",
+      "title": "Catheter with interdigitated electrodes",
+      "url": "https://patents.google.com/patent/US10165971B2/en"
+    }
+  ],
+  "note": "Lightweight search only (IDs/URLs/titles). Enable USE_DETAILED_ANALYSIS for full patent content and relevance analysis."
 }

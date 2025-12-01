@@ -1,0 +1,72 @@
+{
+  "1": {
+    "invention_id": "INV-2024-001",
+    "invention_name": "Integrated System for Catheter Biofilm Detection and Treatment",
+    "technical_description": "This integrated system seamlessly incorporates flexible, interdigitated electrodes (IDEs) into a commercial Foley urinary catheter via a 3D-printed insert. It performs real-time impedance-based sensing for bacterial growth detection and applies bioelectric effect-based treatment for biofilm reduction. The system is wirelessly controlled through a custom application communicating with a custom Printed Circuit Board (PCB) via Bluetooth, ensuring user-friendly operation and maintaining the catheter's primary functions.",
+    "problem_statement": "Catheter-associated urinary tract infections (CAUTIs) are a major healthcare-acquired infection, primarily driven by antibiotic-tolerant bacterial biofilms on indwelling catheters. Current detection methods are slow and reactive, leading to infection progression, while widespread antibiotic use fosters resistance.",
+    "solution_approach": "The system provides a proactive, device-based approach for CAUTI management by enabling prompt, real-time detection of bacterial growth via impedance changes. It then facilitates targeted biofilm reduction using a synergistic bioelectric effect (low-intensity electric field combined with reduced antibiotic dosage), thereby minimizing antibiotic resistance and improving treatment efficacy.",
+    "key_technical_features": [
+      "Flexible, interdigitated electrodes (IDEs) on polyimide substrate",
+      "3D-printed insert module for seamless Foley catheter integration",
+      "Impedance sensing for continuous bacterial growth monitoring",
+      "Bioelectric effect (BE) application for synergistic biofilm reduction",
+      "Custom PCB with Bluetooth MCU, AD5933 impedance sensing module, and AD2S99 sine wave oscillator",
+      "Wireless control and data display via custom iOS/Android mobile application",
+      "Maintains primary Foley catheter functions (urine drainage, balloon inflation)",
+      "Feedback-driven CAUTI management capability"
+    ],
+    "statutory_category": "Machine",
+    "domain_classification": "Medical Devices, Bioelectronics, Clinical Microbiology, Wireless Communication, IoT in Healthcare",
+    "inventor_keywords": [
+      "Bacterial biofilm",
+      "bioelectric effect",
+      "flexible device",
+      "impedance sensor",
+      "medical implants",
+      "Foley catheter",
+      "CAUTI",
+      "wireless control",
+      "microcontroller",
+      "biosensor",
+      "3D printing",
+      "antimicrobial resistance"
+    ],
+    "context": {
+      "document_section": "Abstract, I. INTRODUCTION, II. METHODS (A, C, E), IV. CONCLUSION",
+      "confidence_score": 0.98
+    }
+  },
+  "2": {
+    "invention_id": "INV-2024-002",
+    "invention_name": "Method for Real-time Catheter Biofilm Monitoring and Bioelectric Treatment",
+    "technical_description": "This method involves continuously monitoring bacterial biofilm formation on an indwelling urinary catheter by measuring impedance changes via integrated flexible electrodes. Upon detecting a significant decrease in impedance (e.g., 13.0% for E. coli), indicating bacterial growth, a bioelectric effect (BE) treatment is initiated. This BE treatment applies a low-intensity electric field (e.g., 20 kHz sine wave) synergistically with low-dose antimicrobials to increase bacterial susceptibility and reduce biofilm biomass.",
+    "problem_statement": "Current clinical practices for managing catheter-associated urinary tract infections (CAUTIs) are often reactive, relying on delayed symptom onset or culture results, which allows biofilm-driven infections to progress. High antibiotic dosages required for biofilm treatment contribute to antimicrobial resistance.",
+    "solution_approach": "The method enables proactive CAUTI management through real-time, continuous monitoring of biofilm formation, allowing for early intervention before severe infection develops. By employing the bioelectric effect, it enhances the efficacy of low-dose antimicrobials, reducing the overall antibiotic requirement and combating the rise of antibiotic-resistant pathogens.",
+    "key_technical_features": [
+      "Continuous, non-destructive impedance-based biofilm monitoring",
+      "Real-time detection of bacterial growth via impedance decrease",
+      "Threshold-based notification and treatment initiation",
+      "Application of low-intensity alternating current (AC) electric field (e.g., 20 kHz, 650 mVpk-pk)",
+      "Synergistic combination of electric field with reduced antibiotic dosage",
+      "Wireless control and data logging of sensing and treatment parameters",
+      "Feedback-driven approach for CAUTI management"
+    ],
+    "statutory_category": "Process",
+    "domain_classification": "Clinical Procedures, Medical Diagnostics, Antimicrobial Therapy, Biofilm Management",
+    "inventor_keywords": [
+      "Biofilm monitoring",
+      "impedance sensing",
+      "bioelectric effect",
+      "CAUTI treatment",
+      "antibiotic reduction",
+      "real-time detection",
+      "antimicrobial resistance",
+      "medical process",
+      "catheter management"
+    ],
+    "context": {
+      "document_section": "Abstract, I. INTRODUCTION, II. METHODS (F. Impedance Sensing Characterization, G. BE Treatment), IV. CONCLUSION",
+      "confidence_score": 0.95
+    }
+  }
+}

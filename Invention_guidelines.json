@@ -1,0 +1,85 @@
+{
+  "guideline_title": "Determining Possible Invention",
+  "version": "1.0",
+  "description": "Structured rubric for evaluating whether a research work or paper constitutes a potential invention under MPEP §2106 Step 1 and Step 2A criteria. Designed for use in LLM-based triage or contextual reasoning frameworks.",
+  "facets": [
+    {
+      "id": "A",
+      "name": "Nature of the Described Innovation",
+      "questions": [
+        "What kind of thing is being presented — a method or process, system or apparatus, manufactured product or tool, or composition or material?",
+        "What specific features, functions, or relationships in the research description indicate this classification?",
+        "Which part of the paper’s approach or design demonstrates how it operates or what it is made of?",
+        "Why does the described work fit best as a method, system, product, or composition?"
+      ],
+      "scoring": {
+        "0": "No identifiable inventive element; only discusses ideas or correlations without describing a process, system, product, or material.",
+        "1": "Vague or implied; mentions a 'framework', 'approach', or 'model' but does not clearly define what it is or how it operates.",
+        "2": "Clearly defined; explicitly states the invention type and explains what it is or how it runs (method, system, product, or composition). A direct quote can identify its type."
+      }
+    },
+    {
+      "id": "B",
+      "name": "Conceptual Foundation or Possible Judicial Exception",
+      "questions": [
+        "Does the paper’s main contribution rely primarily on a conceptual principle, mathematical model, natural law, or natural phenomenon rather than a concrete technical implementation?",
+        "Which aspects of the described work show focus on an underlying idea or correlation instead of a fully engineered mechanism or process?",
+        "Could the same concept, relationship, or behavior be carried out on generic commercial hardware and standard software without introducing any new computational mechanism, architecture, or specialized system?"
+      ],
+      "scoring": {
+        "0": "Pure idea, theory, or correlation; no defined mechanism or architecture.",
+        "1": "Partial mechanism; some algorithmic steps, schematic, or pseudo-process, but incomplete or not reproducible.",
+        "2": "Fully specified mechanism; reproducible steps, system architecture, or design that someone skilled in the art could implement."
+      }
+    },
+    {
+      "id": "C",
+      "name": "Practical Application or Technical Integration",
+      "questions": [
+        "What specific mechanisms, interactions, or operations transform the conceptual idea into a real-world implementation or effect?",
+        "How does the computer, device, experimental setup, or material perform the described method or process?",
+        "What physical, computational, or technical operation is being improved, optimized, or newly enabled?"
+      ],
+      "scoring": {
+        "0": "No measurable technical output or test; results are qualitative, speculative, or unverified.",
+        "1": "Includes quantitative data or metrics but without a clear baseline, benchmark, or comparison to prior work.",
+        "2": "Shows a measurable improvement or performance change relative to a defined baseline or standard, supported by numeric or objective evidence."
+      }
+    }
+  ],
+  "decision_rules": {
+    "total_score_interpretation": [
+      {
+        "range": "0-2",
+        "classification": "Scientific Discovery",
+        "interpretation": "Primarily theoretical or conceptual; lacks concrete mechanism or measurable effect.",
+        "next_step": "Archive or reference only."
+      },
+      {
+        "range": "3-4",
+        "classification": "Borderline Case",
+        "interpretation": "Partially developed; some mechanism or data present but incomplete or unclear.",
+        "next_step": "Request clarification or missing details from authors."
+      },
+      {
+        "range": "5-6",
+        "classification": "Potential Invention",
+        "interpretation": "Technically implemented with measurable performance; likely meets invention-level criteria.",
+        "next_step": "Prepare draft disclosure and initiate prior-art search."
+      }
+    ]
+  },
+  "guardrails": {
+    "rules": [
+      "If A = 0 (no identifiable inventive element), classify as Scientific Discovery immediately; no further scoring needed.",
+      "If B = 0 (no concrete mechanism or architecture), classify as Scientific Discovery immediately; no further scoring needed.",
+      "Use evidence primarily from Methods, Design, and Results sections — avoid relying on Abstracts or Introductions."
+    ]
+  },
+  "metadata": {
+    "authors": ["FNU Prayoga", "Pranav Mane", "Pranav Vasist"],
+    "context": "Invention identification framework for AI/technical papers",
+    "based_on": "MPEP §2106 Step 1 & Step 2A",
+    "created": "2025-11-13"
+  }
+}
