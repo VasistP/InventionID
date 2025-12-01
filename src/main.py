@@ -18,6 +18,7 @@ from inventionID import InventionExtractor
 from llm_client import LLMClient
 from patent_search import GooglePatentsSearcher
 import config
+from utils.prompt_templates import PromptTemplates
 
 # Import optional modules based on config
 if config.USE_RATE_LIMITING:
@@ -106,8 +107,56 @@ class PatentSearchSystem:
         print("=" * 80)
         print("PATENT PRIOR ART SEARCH")
         print("=" * 80)
+        # file_path = Path(invention_file)
+        # is_pdf = file_path.suffix.lower() == ".pdf"
 
+        # # ==========================================
+        # # 0. SCORE INVENTION BEFORE EXTRACTION (PDF ONLY)
+        # # ==========================================
+        # if is_pdf:
+        #     print("\n[0/3] Evaluating invention potential FROM FULL PDF...")
+
+        #     extractor = InventionExtractor(output_dir="data")
+        #     full_pdf_text = extractor.extract_text(str(file_path))
+
+        #     # Load rubric & template
+        #     with open("Invention_guidelines.json") as f:
+        #         guideline = json.load(f)
+        #     with open("invention_evaluator_template.json") as f:
+        #         evaluator_template = json.load(f)
+
+        #     scoring_prompt = PromptTemplates.generate_invention_assessment_from_pdf(
+        #         full_pdf_text,
+        #         guideline,
+        #         evaluator_template
+        #     )
+
+        #     scoring_response = self.llm.generate(scoring_prompt)
+
+        #     try:
+        #         invention_score = json.loads(scoring_response)
+        #         print("\nInvention Scoring Result:")
+        #         print(json.dumps(invention_score, indent=2))
+
+        #         self.invention_score = invention_score
+        #     except:
+        #         print("\n⚠ Invalid scoring JSON:")
+        #         print(scoring_response)
+        #         return None
+
+        #     # STOP EARLY if not invention
+        #     if invention_score.get("final_classification", "").lower() == "scientific discovery":
+        #         print("\n⚠ PDF does not describe an invention. Stopping.")
+        #         return invention_score
+
+        #     print("\n✔ Invention detected. Proceeding to extraction...")
+
+        # # ==========================================
+        # # 1. Extract or load invention (existing logic)
+        # # ==========================================
         # Load invention
+
+
         invention = self._load_or_extract_invention(invention_file)
         print(f"\nLoaded: {invention['invention_name']}")
 
@@ -241,6 +290,7 @@ Format: ["query 1", "query 2", ...]
     def _generate_report(self, invention: Dict, patents: List[Dict]) -> Dict:
         """Generate lightweight report (no detailed analysis yet)"""
         return {
+            'invention_evaluation': getattr(self, 'invention_score', {}), #NEW
             'invention': {
                 'name': invention['invention_name'],
                 'domain': invention.get('domain_classification', 'Unknown'),
@@ -303,6 +353,7 @@ Format: ["query 1", "query 2", ...]
             print(f"  Total requests: {stats['total_requests_tracked']}")
             print(
                 f"  Requests in last minute: {stats['requests_in_last_minute']}")
+    
 
 
 def main():

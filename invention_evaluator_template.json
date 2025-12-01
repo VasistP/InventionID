@@ -1,0 +1,43 @@
+{
+  "evaluator_template": {
+    "instructions": "For each facet (A–C), extract relevant text or evidence from the paper, justify the score, and provide short reasoning. After all facets are scored, sum the total and apply decision rules for classification.",
+    "fields": {
+      "paper_title": "",
+      "evaluator_name": "",
+      "evaluation_date": "",
+      "facets": [
+        {
+          "facet_id": "A",
+          "facet_name": "Nature of the Described Innovation",
+          "score": "",
+          "evidence_quote": "",
+          "reasoning": ""
+        },
+        {
+          "facet_id": "B",
+          "facet_name": "Conceptual Foundation or Possible Judicial Exception",
+          "score": "",
+          "evidence_quote": "",
+          "reasoning": ""
+        },
+        {
+          "facet_id": "C",
+          "facet_name": "Practical Application or Technical Integration",
+          "score": "",
+          "evidence_quote": "",
+          "reasoning": ""
+        }
+      ],
+      "total_score": "",
+      "final_classification": "",
+      "justification_summary": "",
+      "next_step_recommendation": ""
+    }
+  },
+  "metadata": {
+    "authors": ["FNU Prayoga", "Pranav Mane", "Pranav Vasist"],
+    "context": "Evaluator output schema for Determining Possible Invention rubric",
+    "compatible_with": "invention_guideline.json v1.0",
+    "created": "2025-11-13"
+  }
+}

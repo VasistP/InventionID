@@ -70,8 +70,8 @@ TOP_K_PATENTS = 15                    # Top K patents to keep after filtering
 # ============================================================================
 
 # Default LLM model (can be overridden)
-DEFAULT_LLM_MODEL = "claude-sonnet-4-5"
-# DEFAULT_LLM_MODEL = "gemini-2.5-flash"
+# DEFAULT_LLM_MODEL = "claude-sonnet-4-5"
+DEFAULT_LLM_MODEL = "gemini-2.5-flash"
 
 # LLM generation parameters
 DEFAULT_MAX_TOKENS = 4000
