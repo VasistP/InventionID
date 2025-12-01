@@ -72,9 +72,7 @@ class PatentSearchSystem:
             extractor = InventionExtractor(output_dir="data")
             inventions = extractor.process_inventions(
                 str(file_path),
-                output_filename=None,
-                rate_limiter=self.rate_limiter if hasattr(
-                    self, 'rate_limiter') else None
+                output_filename=None
             )
 
             if not inventions:
