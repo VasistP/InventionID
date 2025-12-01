@@ -24,6 +24,7 @@ class LLMClient:
 
         self.tools = tools
         self.rate_limiter = rate_limiter
+        self.model = model
 
         # Initialize clients
         anthropic_key = os.getenv('ANTHROPIC_API_KEY')

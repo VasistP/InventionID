@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Dict, List, Optional
 from dotenv import load_dotenv
 from utils.prompt_templates import PromptTemplates
+from agents import Orchestrator
+from utils.logger import InventionLogger
 
 # Add src to path to import modules
 sys.path.append(str(Path(__file__).parent / 'src'))
@@ -76,33 +78,34 @@ class InventionExtractor:
     #                 text.append(page_text)
     #     return '\n'.join(text)
 
-    def identify_inventions(self, pdf_path) -> Dict:
-        """
-        Use LLM to identify and structure inventions from document text
+    def identify_inventions(self, pdf_path, rate_limiter=None) -> Dict:
 
-        Args:
-            document_text: Extracted text from PDF
+        logger = InventionLogger()
 
-        Returns:
-            Dictionary with invention data
-        """
-        prompt = PromptTemplates.get_inventions()
-        self.llm = LLMClient(tools=[])
-        files = [
-            pdf_path
-        ]
+        if not self.llm:
+            self.llm = LLMClient(rate_limiter=rate_limiter)
 
-        print("Analyzing document for inventions...")
-        response = self.llm.generate(
-            prompt, files, max_tokens=8000, temperature=0.2)
+        orchestrator = Orchestrator(
+            llm_client=self.llm,
+            logger=logger,
+            rate_limiter=rate_limiter,
+            score_threshold=85,
+            max_iterations=3
+        )
 
-        try:
-            inventions = self._parse_llm_response(response)
-            return inventions
-        except Exception as e:
-            print(f"ERROR parsing LLM response: {e}")
-            print("Response preview:", response[:500])
-            return {}
+        print("Running multi-agent extraction pipeline...")
+        result = orchestrator.orchestrate(pdf_path)
+
+        invention_data = result["invention"]
+        score = result["score"]["total_score"]
+        iterations = result["iterations"]
+
+        print(f"\nExtraction completed:")
+        print(f"  Score: {score}/100 {result['score']['rating']}")
+        print(f"  Iterations: {iterations}")
+        print(f"  Threshold met: {result['threshold_met']}")
+
+        return {"1": invention_data}
 
     def _parse_llm_response(self, response: str) -> Dict:
         """
@@ -191,7 +194,7 @@ class InventionExtractor:
 
         return str(output_path)
 
-    def process_inventions(self, pdf_path: str, output_filename: Optional[str] = None) -> Dict:
+    def process_inventions(self, pdf_path: str, output_filename: Optional[str] = None, rate_limiter=None) -> Dict:
         """
         Complete pipeline: PDF → Inventions → JSON
 
@@ -207,7 +210,8 @@ class InventionExtractor:
         print("=" * 80)
 
         print("\n[1/3] Identifying inventions using LLM...")
-        inventions = self.identify_inventions(pdf_path)
+        inventions = self.identify_inventions(
+            pdf_path, rate_limiter=rate_limiter)
 
         if not inventions:
             print("WARNING: No inventions found in document")
