@@ -15,8 +15,16 @@ class RefinerAgent(AutonomousAgent):
             "validation": validation,
             "pdf_path": pdf_path,
             "iteration": 0,
-            "refinements": []
+            "refinements": [],
+            "agent_role": "refiner",
+            "task": "refine invention based on validation issues"
         }
+
+        issues = validation.get("issues", [])
+        missing_fields = validation.get("missing_fields", [])
+
+        if not issues and not missing_fields:
+            return invention
 
         for i in range(max_iterations):
             self.state["iteration"] = i + 1
@@ -27,10 +35,19 @@ class RefinerAgent(AutonomousAgent):
                 break
 
             params = decision.get('tool_params', {})
-            if 'pdf_path' not in params and decision.get('action') == 'section_reader':
+
+            if decision.get('action') == 'section_reader' and 'pdf_path' not in params:
                 params['pdf_path'] = pdf_path
-            if 'invention_context' not in params and decision.get('action') == 'field_enhancer':
-                params['invention_context'] = invention
+
+            if decision.get('action') == 'field_enhancer':
+                if 'invention_context' not in params:
+                    params['invention_context'] = invention
+
+            if decision.get('action') == 'llm_extractor':
+                if 'pdf_path' not in params:
+                    params['pdf_path'] = pdf_path
+                if 'context' not in params:
+                    params['context'] = f"Issues to fix: {', '.join(issues)}"
 
             decision['tool_params'] = params
 
@@ -39,11 +56,11 @@ class RefinerAgent(AutonomousAgent):
             if result["status"] == "success":
                 if decision.get('action') == 'field_enhancer':
                     field_name = params.get('field_name')
-                    if field_name:
+                    if field_name and isinstance(result["result"], str):
                         self.state["invention"][field_name] = result["result"]
                         self.state["refinements"].append(field_name)
                 elif decision.get('action') == 'llm_extractor':
-                    updated = result["result"]
-                    self.state["invention"].update(updated)
+                    if isinstance(result["result"], dict):
+                        self.state["invention"].update(result["result"])
 
-        return self.state["invention"]
+        return self.state.get("invention", invention)

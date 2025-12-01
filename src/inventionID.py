@@ -26,7 +26,7 @@ sys.path.append(str(Path(__file__).parent / 'src'))
 class InventionExtractor:
     """Extract structured invention data from PDF documents"""
 
-    def __init__(self, output_dir: str = "data"):
+    def __init__(self, output_dir: str = "data", rate_limiter=None):
         """
         Initialize the invention extractor
 
@@ -34,10 +34,12 @@ class InventionExtractor:
             output_dir: Directory to save output JSON files
         """
         load_dotenv()
-        self.llm = None
+
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
 
+        self.rate_limiter = rate_limiter
+        self.llm = LLMClient(rate_limiter=self.rate_limiter)
     # def extract_text_from_pdf(self, pdf_path: str) -> str:
     #     """
     #     Extract text content from PDF file
@@ -83,12 +85,12 @@ class InventionExtractor:
         logger = InventionLogger()
 
         if not self.llm:
-            self.llm = LLMClient(rate_limiter=rate_limiter)
+            self.llm = LLMClient(rate_limiter=self.rate_limiter)
 
         orchestrator = AutonomousOrchestrator(
             llm_client=self.llm,
             logger=logger,
-            rate_limiter=rate_limiter
+            rate_limiter=self.rate_limiter
         )
 
         print("Running autonomous multi-agent extraction pipeline...")
@@ -193,7 +195,7 @@ class InventionExtractor:
 
         return str(output_path)
 
-    def process_inventions(self, rate_limiter, pdf_path: str, output_filename: Optional[str] = None, ) -> Dict:
+    def process_inventions(self, pdf_path: str, output_filename: Optional[str] = None, rate_limiter=None) -> Dict:
         """
         Complete pipeline: PDF → Inventions → JSON
 

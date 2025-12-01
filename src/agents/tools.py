@@ -12,8 +12,6 @@ class ToolRegistry:
         self.scorer = InventionScorer()
 
     def pdf_reader(self, pdf_path: str) -> Dict[str, Any]:
-        if self.rate_limiter:
-            self.rate_limiter.acquire()
 
         prompt = f"Analyze this PDF and extract the main sections. Return JSON with: sections (array of section names), total_pages, has_technical_content (boolean)"
 
@@ -21,9 +19,35 @@ class ToolRegistry:
             prompt, files=[pdf_path], max_tokens=2000, temperature=0.3)
         return self._parse_json(response)
 
-    def llm_extractor(self, prompt: str, pdf_path: str = None, context: str = None) -> Dict[str, Any]:
-        if self.rate_limiter:
-            self.rate_limiter.acquire()
+    def llm_extractor(self, prompt: str = None, pdf_path: str = None, context: str = None) -> Dict[str, Any]:
+
+        if prompt is None:
+            prompt = """Extract a complete patent invention disclosure from this document.
+
+Return ONLY a JSON object (NO markdown, NO code blocks) with these EXACT fields:
+
+{
+  "invention_id": "INV-2024-XXX",
+  "invention_name": "concise name max 10 words",
+  "technical_description": "detailed 2-4 sentences explaining the invention",
+  "problem_statement": "2-3 sentences describing the problem being solved",
+  "solution_approach": "2-3 sentences explaining how the invention solves it",
+  "key_technical_features": ["feature1", "feature2", "feature3", "feature4", "feature5"],
+  "statutory_category": "Process or Machine or Manufacture or Composition of Matter",
+  "domain_classification": "specific domain like AI/ML, Biotech, Hardware, etc",
+  "inventor_keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
+  "context": {
+    "document_section": "where in document this appears",
+    "confidence_score": 0.85
+  }
+}
+
+CRITICAL REQUIREMENTS:
+- Include at least 5 key_technical_features (specific, not generic)
+- Include at least 5 inventor_keywords
+- All text fields must be complete sentences
+- statutory_category MUST be one of the 4 exact options listed
+- Return ONLY the JSON object, nothing else"""
 
         full_prompt = prompt
         if context:
@@ -44,8 +68,6 @@ class ToolRegistry:
         }
 
     def field_enhancer(self, field_name: str, current_value: Any, invention_context: Dict) -> str:
-        if self.rate_limiter:
-            self.rate_limiter.acquire()
 
         prompt = f"""Enhance this field for a patent invention disclosure.
 
@@ -90,8 +112,6 @@ Return an enhanced version of this field that is more specific, detailed, and pa
         }
 
     def section_reader(self, pdf_path: str, section_name: str) -> str:
-        if self.rate_limiter:
-            self.rate_limiter.acquire()
 
         prompt = f"Extract ONLY the '{section_name}' section from this PDF. Return just the text content from that section, nothing else."
 

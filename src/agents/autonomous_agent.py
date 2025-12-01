@@ -19,7 +19,6 @@ class AutonomousAgent:
         self.state = {}
 
     def decide_next_action(self, current_state: Dict) -> Dict[str, Any]:
-
         state_summary = json.dumps(current_state, indent=2)
         tool_names = list(self.available_tools.keys())
 
@@ -33,18 +32,24 @@ AVAILABLE TOOLS:
 
 Decide what to do next. Analyze the current state and choose ONE action.
 
-Return ONLY a JSON object:
-{{
-  "thought": "Your reasoning about what to do next",
-  "action": "tool_name or 'complete'",
-  "tool_params": {{"param1": "value1"}},
-  "reason": "Why you chose this action"
-}}
+CRITICAL RULES:
+1. If "extraction" is empty, use llm_extractor with pdf_path
+2. If "validation_results" exists AND score >= 85, action = "complete"
+3. NEVER check context.confidence_score - it's not the quality score
+4. If no validation_results yet, DO NOT complete
+5. Always include tool_params as empty dict {{}} if no params needed
 
-If the task is complete (score >= 85 or all fields adequate), set action to 'complete'."""
+Return ONLY valid JSON with NO markdown, NO code blocks:
+{{"thought": "your reasoning", "action": "tool_name_or_complete", "tool_params": {{}}, "reason": "why"}}"""
 
         response = self.llm.generate(
-            prompt, files=None, max_tokens=1000, temperature=0.5)
+            prompt, files=None, max_tokens=1000, temperature=0.3)
+
+        if response is None or not response:
+            self.logger.logger.error(
+                f"[{self.name}] LLM returned None or empty response")
+            return {"thought": "LLM error - no response", "action": "complete", "tool_params": {}}
+
         decision = self._parse_json(response)
 
         self.logger.logger.info(
@@ -88,6 +93,9 @@ If the task is complete (score >= 85 or all fields adequate), set action to 'com
             return {"status": "error", "result": str(e)}
 
     def _parse_json(self, response: str) -> Dict:
+        if not response:
+            return {"thought": "Empty response", "action": "complete", "tool_params": {}}
+
         pattern = r'```(?:json)?\s*([\s\S]*?)\s*```'
         match = re.search(pattern, response)
 
@@ -98,6 +106,23 @@ If the task is complete (score >= 85 or all fields adequate), set action to 'com
             json_str = obj_match.group(0) if obj_match else response
 
         try:
-            return json.loads(json_str)
-        except:
-            return {"thought": "Parse error", "action": "complete", "tool_params": {}}
+            parsed = json.loads(json_str)
+
+            if 'action' not in parsed:
+                self.logger.logger.error(
+                    f"[{self.name}] Parse error: missing 'action' field")
+                self.logger.logger.error(
+                    f"[{self.name}] Response was: {response[:500]}")
+                return {"thought": "Parse error - missing action", "action": "complete", "tool_params": {}}
+
+            return parsed
+        except json.JSONDecodeError as e:
+            self.logger.logger.error(
+                f"[{self.name}] JSON parse error: {str(e)}")
+            self.logger.logger.error(
+                f"[{self.name}] Failed to parse: {json_str[:500]}")
+            return {"thought": "Parse error - invalid JSON", "action": "complete", "tool_params": {}}
+        except Exception as e:
+            self.logger.logger.error(
+                f"[{self.name}] Unexpected error: {str(e)}")
+            return {"thought": "Parse error - unexpected", "action": "complete", "tool_params": {}}

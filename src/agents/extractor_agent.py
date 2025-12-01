@@ -14,7 +14,8 @@ class ExtractorAgent(AutonomousAgent):
             "pdf_path": pdf_path,
             "extraction": {},
             "iteration": 0,
-            "complete": False
+            "agent_role": "extractor",
+            "task": "extract invention from PDF"
         }
 
         for i in range(max_iterations):
@@ -23,11 +24,13 @@ class ExtractorAgent(AutonomousAgent):
             decision = self.decide_next_action(self.state)
 
             if decision.get('action') == 'complete':
-                self.state["complete"] = True
                 break
 
-            if 'pdf_path' not in decision.get('tool_params', {}):
-                decision['tool_params']['pdf_path'] = pdf_path
+            params = decision.get('tool_params', {})
+            if 'pdf_path' not in params:
+                params['pdf_path'] = pdf_path
+
+            decision['tool_params'] = params
 
             result = self.execute_action(decision, i + 1)
 
@@ -35,8 +38,12 @@ class ExtractorAgent(AutonomousAgent):
                 if decision.get('action') == 'llm_extractor':
                     self.state["extraction"] = result["result"]
                 elif decision.get('action') == 'quick_validator':
-                    self.state["validation"] = result["result"]
+                    self.state["quick_check"] = result["result"]
                 elif decision.get('action') == 'field_counter':
                     self.state["counts"] = result["result"]
 
-        return self.state["extraction"]
+            if self.state.get("extraction") and isinstance(self.state["extraction"], dict):
+                if len(self.state["extraction"]) >= 8:
+                    break
+
+        return self.state.get("extraction", {})

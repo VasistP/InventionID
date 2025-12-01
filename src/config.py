@@ -22,9 +22,9 @@ USE_DETAILED_ANALYSIS = False
 # ============================================================================
 
 # Rate limit settings (to avoid hitting API limits)
-RATE_LIMIT_RPM = 10                 # Requests per minute (10 RPM for testing)
+RATE_LIMIT_RPM = 2                 # Requests per minute (10 RPM for testing)
 # Minimum seconds between requests (60/10 = 6s)
-MIN_REQUEST_INTERVAL = 6.0
+MIN_REQUEST_INTERVAL = 30
 
 MAX_API_CALLS_PER_EXTRACTION = 20  # Max API calls during invention extraction
 # ============================================================================
@@ -71,8 +71,8 @@ TOP_K_PATENTS = 15                    # Top K patents to keep after filtering
 # ============================================================================
 
 # Default LLM model (can be overridden)
-DEFAULT_LLM_MODEL = "claude-sonnet-4-5"
-# DEFAULT_LLM_MODEL = "gemini-2.5-flash"
+# DEFAULT_LLM_MODEL = "claude-sonnet-4-5"
+DEFAULT_LLM_MODEL = "gemini-2.5-pro"  # "gemini-2.5-flash"
 
 # LLM generation parameters
 DEFAULT_MAX_TOKENS = 4000

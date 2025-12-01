@@ -11,8 +11,9 @@ import config
 
 class AutonomousOrchestrator:
     def __init__(self, llm_client: LLMClient, logger: InventionLogger, rate_limiter=None):
-        self.llm = llm_client
+
         self.logger = logger
+        self.llm = llm_client
         self.rate_limiter = rate_limiter
         self.scorer = InventionScorer()
         self.tool_registry = ToolRegistry(llm_client, rate_limiter)
@@ -31,7 +32,7 @@ class AutonomousOrchestrator:
         self.logger.log_start(pdf_path)
         self.api_calls = 0
 
-        extraction_iterations = min(8, self.max_api_calls // 2)
+        extraction_iterations = min(8, self.max_api_calls // 3)
         invention = self.extractor.run(
             pdf_path, max_iterations=extraction_iterations)
         self.api_calls += self.extractor.state.get("iteration", 0)
@@ -39,7 +40,12 @@ class AutonomousOrchestrator:
         if not invention or self.api_calls >= self.max_api_calls:
             return self._finalize({}, 0, self.api_calls)
 
-        validation_result = self.validator.run(invention, max_iterations=2)
+        validation_iterations = min(2, self.max_api_calls - self.api_calls)
+        if validation_iterations <= 0:
+            return self._finalize(invention, 0, self.api_calls)
+
+        validation_result = self.validator.run(
+            invention, max_iterations=validation_iterations)
         self.api_calls += self.validator.state.get("iteration", 0)
         current_score = validation_result.get("score", 0)
 
@@ -48,7 +54,7 @@ class AutonomousOrchestrator:
 
         while current_score < 85 and refinement_rounds < max_refinement_rounds and self.api_calls < self.max_api_calls:
             remaining_calls = self.max_api_calls - self.api_calls
-            refinement_iterations = min(5, remaining_calls)
+            refinement_iterations = min(5, remaining_calls // 2)
 
             if refinement_iterations <= 0:
                 break
@@ -60,7 +66,12 @@ class AutonomousOrchestrator:
             if self.api_calls >= self.max_api_calls:
                 break
 
-            validation_result = self.validator.run(invention, max_iterations=2)
+            validation_iterations = min(2, self.max_api_calls - self.api_calls)
+            if validation_iterations <= 0:
+                break
+
+            validation_result = self.validator.run(
+                invention, max_iterations=validation_iterations)
             self.api_calls += self.validator.state.get("iteration", 0)
             current_score = validation_result.get("score", 0)
 

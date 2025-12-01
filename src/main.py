@@ -169,8 +169,8 @@ Format: ["query 1", "query 2", ...]
 """
 
         # Use rate limiter if enabled
-        if self.rate_limiter:
-            self.rate_limiter.acquire()
+        # if self.rate_limiter:
+        #     self.rate_limiter.acquire()
 
         response = self.llm.generate(
             prompt,
@@ -216,8 +216,8 @@ Format: ["query 1", "query 2", ...]
                 print(f"  Query {i}/{len(queries)}: {query[:50]}...")
 
             # Use rate limiter if enabled
-            if self.rate_limiter:
-                self.rate_limiter.acquire()
+            # if self.rate_limiter:
+            #     self.rate_limiter.acquire()
 
             patents = self.searcher.search(
                 query, max_results=results_per_query)
