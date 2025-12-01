@@ -13,7 +13,7 @@ from modules.rate_limiter import RateLimiter
 class LLMClient:
     """Unified LLM client"""
 
-    def __init__(self, model: str = None, tools: Optional[list] = None, rate_limiter=None):
+    def __init__(self, rate_limiter, model: str = None, tools: Optional[list] = None, ):
         """
         Initialize LLM client
 

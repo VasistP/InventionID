@@ -22,10 +22,11 @@ USE_DETAILED_ANALYSIS = False
 # ============================================================================
 
 # Rate limit settings (to avoid hitting API limits)
-RATE_LIMIT_RPM = 2                 # Requests per minute (10 RPM for testing)
+RATE_LIMIT_RPM = 10                 # Requests per minute (10 RPM for testing)
 # Minimum seconds between requests (60/10 = 6s)
-MIN_REQUEST_INTERVAL = 30.0
+MIN_REQUEST_INTERVAL = 6.0
 
+MAX_API_CALLS_PER_EXTRACTION = 20  # Max API calls during invention extraction
 # ============================================================================
 # PATENT PROCESSING LIMITS
 # ============================================================================
