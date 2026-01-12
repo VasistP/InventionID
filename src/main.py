@@ -331,7 +331,7 @@ Format: ["query 1", "query 2", ...]
             print("  Enable USE_DETAILED_ANALYSIS in config.py for full content")
 
         # Print patent list with URLs
-        print(f"\n📋 PATENTS FOUND:")
+        print(f"\n PATENTS FOUND:")
         print("-" * 80)
         for i, patent in enumerate(report['patents'][:10], 1):  # Show first 10
             patent_num = patent.get('patent_number', 'Unknown')
