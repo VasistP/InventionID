@@ -76,6 +76,54 @@ class InventionExtractor:
     #                 text.append(page_text)
     #     return '\n'.join(text)
 
+    def assess_invention_from_pdf(self, pdf_path: str) -> dict:
+        """
+        Run FIRST-STAGE invention evaluation:
+        - Upload full PDF to LLM
+        - Apply rubric from guidelines JSON
+        - Use evaluator template JSON for structured output
+        """
+
+        # Load supporting JSON files
+        with open("Invention_guidelines.json") as f:
+            guideline = json.load(f)
+
+        with open("invention_evaluator_template.json") as f:
+            evaluator_template = json.load(f)
+
+        # Create the prompt (no pdf_text needed anymore)
+        prompt = PromptTemplates.generate_invention_assessment_from_pdf(
+            guideline=guideline,
+            evaluator_template=evaluator_template
+        )
+
+        # Run LLM — pass PDF file so model can read it directly
+        self.llm = LLMClient(tools=[])
+        response = self.llm.generate(
+            prompt,
+            files=[pdf_path],          # ← THIS IS CORRECT
+            max_tokens=8000,
+            temperature=0.2
+        )
+
+        # Attempt to parse JSON output
+        try:
+            # return json.loads(response)
+            clean = response.strip()
+
+            # Remove accidental code fences if model still outputs them
+            if clean.startswith("```"):
+                clean = clean.split("```")[1].strip()
+            if clean.endswith("```"):
+                clean = clean.rsplit("```", 1)[0].strip()
+
+            return json.loads(clean)
+        except Exception as e:
+            print("LLM returned NON-JSON output — showing preview:")
+            print(response[:500])
+            raise e
+
+
     def identify_inventions(self, pdf_path) -> Dict:
         """
         Use LLM to identify and structure inventions from document text
@@ -207,6 +255,16 @@ class InventionExtractor:
         print("=" * 80)
 
         print("\n[1/3] Identifying inventions using LLM...")
+
+        test = self.assess_invention_from_pdf(pdf_path)
+
+        with open("test.json", "w") as f:
+            json.dump(test, f, indent=2)
+
+        with open("test.log", "w") as f:
+            f.write(json.dumps(test, indent=2))
+
+
         inventions = self.identify_inventions(pdf_path)
 
         if not inventions:

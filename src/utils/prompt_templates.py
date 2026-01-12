@@ -2,6 +2,7 @@
 Prompt Templates for Patent Search System
 
 Contains all prompt templates for:
+- Potential Invention Identification
 - Query generation
 - Patent detail fetching
 - Patent analysis
@@ -9,7 +10,7 @@ Contains all prompt templates for:
 
 All templates are designed to produce structured JSON outputs.
 """
-
+import json
 
 class PromptTemplates:
     """Collection of prompt templates for patent search operations"""
@@ -402,6 +403,48 @@ Format:
 ```json
 ["feature 1", "feature 2", "feature 3", ...]
 ```"""
+
+
+
+    @staticmethod
+    def generate_invention_assessment_from_pdf(
+                guideline: dict,
+                evaluator_template: dict
+    ) -> str:
+        """
+        First-stage prompt: LLM reads the FULL PDF text and applies
+        the invention rubric BEFORE any extraction or patent search.
+        """
+
+        return f"""
+You are an expert invention evaluator.
+
+You will be given a PDF file as input (already uploaded).
+Do NOT repeat or summarize the entire PDF.
+Extract only what is needed.
+
+==========================
+### INVENTION SCORING RUBRIC (REFERENCE ONLY — DO NOT COPY)
+==========================
+{json.dumps(guideline, indent=2)}
+
+==========================
+### OUTPUT TEMPLATE (FILL THIS OUT — DO NOT COPY)
+==========================
+{json.dumps(evaluator_template, indent=2)}
+
+==========================
+### TASK
+==========================
+1. Read the uploaded PDF fully.
+2. Apply the rubric exactly.
+3. Fill in the OUTPUT TEMPLATE.
+4. Do NOT repeat the rubric or the template.
+5. Do NOT add explanations outside JSON.
+6. Do NOT wrap the output in ```json fences.
+7. Return ONLY a valid JSON object that matches the OUTPUT TEMPLATE.
+"""
+
 
     @staticmethod
     def compare_patents(patent1_data: dict, patent2_data: dict) -> str:
