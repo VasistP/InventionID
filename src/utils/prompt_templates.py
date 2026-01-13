@@ -107,8 +107,13 @@ In the uploaded document, for EACH invention found, extract the following inform
     - document_section: Where in the document (e.g., "Section 3.2")
     - confidence_score: Your confidence (0.0 to 1.0)
 
-IMPORTANT: Return ONLY a JSON object with inventions numbered as keys ("1", "2", etc.).
-If no clear inventions are found, return an empty object: {{}}.
+IMPORTANT OUTPUT RULES:
+- Always return a JSON object with inventions numbered as string keys: "1", "2", "3", ...
+- If there is at least ONE plausible invention (e.g., a new method/framework/architecture), you MUST return at least one invention object.
+- Only return an empty object {{}} if the document is clearly non-technical (for example: a policy memo or editorial with no new method).
+- If you are uncertain, still return your best-guess invention with a lower confidence_score (e.g., 0.4–0.6).
+
+Return ONLY a JSON object, with this structure (do NOT wrap in ```json fences, do NOT include explanations):
 
 Format:
 ```json
@@ -174,6 +179,8 @@ Format:
   "url": "https://patents.google.com/patent/{patent_number}"
 }}
 ```"""
+    
+
 
     @staticmethod
     def fetch_patent_details_batch(patent_numbers: list) -> str:
@@ -514,66 +521,66 @@ Key Features:
 
 
 # Testing
-if __name__ == "__main__":
-    print("=" * 80)
-    print("TESTING PROMPT TEMPLATES")
-    print("=" * 80)
+# if __name__ == "__main__":
+#     print("=" * 80)
+#     print("TESTING PROMPT TEMPLATES")
+#     print("=" * 80)
 
-    # Test data
-    test_invention = {
-        'invention_name': 'Machine Learning Protein Folding System',
-        'technical_description': 'A deep learning system for predicting protein structures',
-        'problem_statement': 'Traditional methods are slow and inaccurate',
-        'solution_approach': 'Use transformer neural networks for structure prediction',
-        'key_technical_features': [
-            'Transformer architecture',
-            'Attention mechanisms',
-            'Multi-scale feature extraction'
-        ]
-    }
+#     # Test data
+#     test_invention = {
+#         'invention_name': 'Machine Learning Protein Folding System',
+#         'technical_description': 'A deep learning system for predicting protein structures',
+#         'problem_statement': 'Traditional methods are slow and inaccurate',
+#         'solution_approach': 'Use transformer neural networks for structure prediction',
+#         'key_technical_features': [
+#             'Transformer architecture',
+#             'Attention mechanisms',
+#             'Multi-scale feature extraction'
+#         ]
+#     }
 
-    test_patent = {
-        'patent_number': 'US10123456B2',
-        'title': 'Neural network protein structure prediction',
-        'abstract': 'A method for predicting protein structures using deep learning...',
-        'claim_1': 'A computer-implemented method comprising...'
-    }
+#     test_patent = {
+#         'patent_number': 'US10123456B2',
+#         'title': 'Neural network protein structure prediction',
+#         'abstract': 'A method for predicting protein structures using deep learning...',
+#         'claim_1': 'A computer-implemented method comprising...'
+#     }
 
-    templates = PromptTemplates()
+#     templates = PromptTemplates()
 
-    # Test 1: Query generation
-    print("\n[TEST 1] Query Generation Prompt")
-    print("-" * 80)
-    prompt = templates.generate_search_queries(test_invention, num_queries=3)
-    print(prompt[:300] + "...")
+#     # Test 1: Query generation
+#     print("\n[TEST 1] Query Generation Prompt")
+#     print("-" * 80)
+#     prompt = templates.generate_search_queries(test_invention, num_queries=3)
+#     print(prompt[:300] + "...")
 
-    # Test 2: Single patent details
-    print("\n[TEST 2] Single Patent Details Prompt")
-    print("-" * 80)
-    prompt = templates.fetch_patent_details_single('US10123456B2')
-    print(prompt[:300] + "...")
+#     # Test 2: Single patent details
+#     print("\n[TEST 2] Single Patent Details Prompt")
+#     print("-" * 80)
+#     prompt = templates.fetch_patent_details_single('US10123456B2')
+#     print(prompt[:300] + "...")
 
-    # Test 3: Batch patent details
-    print("\n[TEST 3] Batch Patent Details Prompt")
-    print("-" * 80)
-    prompt = templates.fetch_patent_details_batch(
-        ['US10123456B2', 'US10789012B2'])
-    print(prompt[:300] + "...")
+#     # Test 3: Batch patent details
+#     print("\n[TEST 3] Batch Patent Details Prompt")
+#     print("-" * 80)
+#     prompt = templates.fetch_patent_details_batch(
+#         ['US10123456B2', 'US10789012B2'])
+#     print(prompt[:300] + "...")
 
-    # Test 4: Single patent analysis
-    print("\n[TEST 4] Single Patent Analysis Prompt")
-    print("-" * 80)
-    inv_desc = get_invention_description(test_invention)
-    prompt = templates.analyze_patent_single(inv_desc, test_patent)
-    print(prompt[:300] + "...")
+#     # Test 4: Single patent analysis
+#     print("\n[TEST 4] Single Patent Analysis Prompt")
+#     print("-" * 80)
+#     inv_desc = get_invention_description(test_invention)
+#     prompt = templates.analyze_patent_single(inv_desc, test_patent)
+#     print(prompt[:300] + "...")
 
-    # Test 5: Batch patent analysis
-    print("\n[TEST 5] Batch Patent Analysis Prompt")
-    print("-" * 80)
-    prompt = templates.analyze_patents_batch(
-        inv_desc, [test_patent, test_patent])
-    print(prompt[:400] + "...")
+#     # Test 5: Batch patent analysis
+#     print("\n[TEST 5] Batch Patent Analysis Prompt")
+#     print("-" * 80)
+#     prompt = templates.analyze_patents_batch(
+#         inv_desc, [test_patent, test_patent])
+#     print(prompt[:400] + "...")
 
-    print("\n" + "=" * 80)
-    print("ALL TEMPLATES GENERATED SUCCESSFULLY")
-    print("=" * 80)
+#     print("\n" + "=" * 80)
+#     print("ALL TEMPLATES GENERATED SUCCESSFULLY")
+#     print("=" * 80)

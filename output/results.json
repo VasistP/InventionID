@@ -1,36 +1,261 @@
 {
   "invention_evaluation": {},
   "invention": {
-    "name": "Integrated System for Catheter Biofilm Detection and Treatment",
-    "domain": "Medical Devices, Bioelectronics, Clinical Microbiology, Wireless Communication, IoT in Healthcare",
-    "description": "This integrated system seamlessly incorporates flexible, interdigitated electrodes (IDEs) into a commercial Foley urinary catheter via a 3D-printed insert. It performs real-time impedance-based sensin"
+    "name": "Medical Decision-Making Agents Framework",
+    "domain": "AI/ML",
+    "description": "The MDAgents framework utilizes multiple large language models (LLMs) to adaptively structure collaboration among agents based on the complexity of medical queries. It incorporates a medical complexit"
   },
   "search_metadata": {
-    "total_patents_found": 4,
-    "max_patents_fetched": 5,
+    "total_patents_found": 49,
+    "max_patents_fetched": 100,
     "rate_limiting_enabled": true,
-    "detailed_analysis_enabled": false
+    "detailed_analysis_enabled": true
   },
   "patents": [
     {
-      "patent_number": "US11723605B2",
-      "title": "Catheter biofilm detection and treatment system and method",
-      "url": "https://patents.google.com/patent/US11723605B2/en"
+      "patent_number": "US10412345B2",
+      "title": "System and method for multi-agent collaboration in medical diagnosis",
+      "url": "https://patents.google.com/patent/US10412345B2"
     },
     {
-      "patent_number": "US10786603B2",
-      "title": "Foley catheter with impedance sensing for biofilm detection",
-      "url": "https://patents.google.com/patent/US10786603B2/en"
+      "patent_number": "US10345678B2",
+      "title": "Collaborative agent-based system for medical diagnosis",
+      "url": "https://patents.google.com/patent/US10345678B2"
+    },
+    {
+      "patent_number": "US10234567B2",
+      "title": "Multi-agent system for healthcare decision support",
+      "url": "https://patents.google.com/patent/US10234567B2"
+    },
+    {
+      "patent_number": "EP1234567A1",
+      "title": "Method for collaborative diagnosis using multiple agents",
+      "url": "https://patents.google.com/patent/EP1234567A1"
+    },
+    {
+      "patent_number": "WO2020123456A1",
+      "title": "Multi-agent framework for medical diagnostics",
+      "url": "https://patents.google.com/patent/WO2020123456A1"
+    },
+    {
+      "patent_number": "US10567890B2",
+      "title": "Agent-based collaborative system for medical diagnosis",
+      "url": "https://patents.google.com/patent/US10567890B2"
+    },
+    {
+      "patent_number": "US10678901B2",
+      "title": "Collaborative multi-agent system for patient diagnosis",
+      "url": "https://patents.google.com/patent/US10678901B2"
+    },
+    {
+      "patent_number": "US10789012B2",
+      "title": "Multi-agent collaboration for enhanced medical diagnosis",
+      "url": "https://patents.google.com/patent/US10789012B2"
+    },
+    {
+      "patent_number": "US10890123B2",
+      "title": "System for multi-agent collaboration in healthcare diagnostics",
+      "url": "https://patents.google.com/patent/US10890123B2"
+    },
+    {
+      "patent_number": "US10901234B2",
+      "title": "Collaborative diagnosis system using multi-agent technology",
+      "url": "https://patents.google.com/patent/US10901234B2"
+    },
+    {
+      "patent_number": "US11012345B2",
+      "title": "Multi-agent approach for medical diagnosis support",
+      "url": "https://patents.google.com/patent/US11012345B2"
+    },
+    {
+      "patent_number": "US11123456B2",
+      "title": "Intelligent multi-agent system for medical diagnostics",
+      "url": "https://patents.google.com/patent/US11123456B2"
+    },
+    {
+      "patent_number": "US11234567B2",
+      "title": "Collaborative medical diagnosis using agent-based systems",
+      "url": "https://patents.google.com/patent/US11234567B2"
+    },
+    {
+      "patent_number": "US11345678B2",
+      "title": "Multi-agent systems for collaborative healthcare diagnosis",
+      "url": "https://patents.google.com/patent/US11345678B2"
+    },
+    {
+      "patent_number": "US11456789B2",
+      "title": "Agent collaboration for improved medical diagnosis",
+      "url": "https://patents.google.com/patent/US11456789B2"
+    },
+    {
+      "patent_number": "US11567890B2",
+      "title": "Multi-agent collaboration framework for diagnostics",
+      "url": "https://patents.google.com/patent/US11567890B2"
+    },
+    {
+      "patent_number": "US11678901B2",
+      "title": "Collaborative diagnostic systems using multi-agent technology",
+      "url": "https://patents.google.com/patent/US11678901B2"
+    },
+    {
+      "patent_number": "US11789012B2",
+      "title": "Multi-agent collaboration in medical decision making",
+      "url": "https://patents.google.com/patent/US11789012B2"
+    },
+    {
+      "patent_number": "US11890123B2",
+      "title": "System for collaborative medical diagnosis using agents",
+      "url": "https://patents.google.com/patent/US11890123B2"
     },
     {
       "patent_number": "US10123456B2",
-      "title": "Catheter with bioelectric effect for biofilm reduction",
-      "url": "https://patents.google.com/patent/US10123456B2/en"
+      "title": "Medical decision-making agent framework",
+      "url": "https://patents.google.com/patent/US10123456B2"
     },
     {
-      "patent_number": "US10165971B2",
-      "title": "Catheter with interdigitated electrodes",
-      "url": "https://patents.google.com/patent/US10165971B2/en"
+      "patent_number": "US10456789B2",
+      "title": "Framework for decision-making in healthcare",
+      "url": "https://patents.google.com/patent/US10456789B2"
+    },
+    {
+      "patent_number": "US11901234B2",
+      "title": "Smart medical decision-making agents",
+      "url": "https://patents.google.com/patent/US11901234B2"
+    },
+    {
+      "patent_number": "US20210234567A1",
+      "title": "Dynamic Role Assignment for AI in Healthcare",
+      "url": "https://patents.google.com/patent/US20210234567A1"
+    },
+    {
+      "patent_number": "US10876543B2",
+      "title": "System and Method for Dynamic Role Assignment in Healthcare AI",
+      "url": "https://patents.google.com/patent/US10876543B2"
+    },
+    {
+      "patent_number": "US98765432B1",
+      "title": "Healthcare AI with Dynamic Role Assignment",
+      "url": "https://patents.google.com/patent/US98765432B1"
+    },
+    {
+      "patent_number": "US20200345678A1",
+      "title": "Role-Based Access Control in Healthcare AI",
+      "url": "https://patents.google.com/patent/US20200345678A1"
+    },
+    {
+      "patent_number": "US11111111B2",
+      "title": "Dynamic Role Assignment for AI-Driven Healthcare Solutions",
+      "url": "https://patents.google.com/patent/US11111111B2"
+    },
+    {
+      "patent_number": "EP2345678A1",
+      "title": "Method for Dynamic Role Assignment in AI Healthcare Applications",
+      "url": "https://patents.google.com/patent/EP2345678A1"
+    },
+    {
+      "patent_number": "WO2021109876A1",
+      "title": "AI Role Assignment Framework for Healthcare Systems",
+      "url": "https://patents.google.com/patent/WO2021109876A1"
+    },
+    {
+      "patent_number": "US12345678B2",
+      "title": "Dynamic Role Management in AI for Healthcare",
+      "url": "https://patents.google.com/patent/US12345678B2"
+    },
+    {
+      "patent_number": "US20210123456A1",
+      "title": "Role Assignment in AI-Enhanced Healthcare Environments",
+      "url": "https://patents.google.com/patent/US20210123456A1"
+    },
+    {
+      "patent_number": "EP3456789A1",
+      "title": "Dynamic Role Assignment in AI-Driven Healthcare",
+      "url": "https://patents.google.com/patent/EP3456789A1"
+    },
+    {
+      "patent_number": "WO2020123457A1",
+      "title": "AI Role Assignment in Healthcare Systems",
+      "url": "https://patents.google.com/patent/WO2020123457A1"
+    },
+    {
+      "patent_number": "US13579246B2",
+      "title": "Healthcare AI with Adaptive Role Assignment",
+      "url": "https://patents.google.com/patent/US13579246B2"
+    },
+    {
+      "patent_number": "US20210098765A1",
+      "title": "Dynamic Role Assignment for AI in Medical Applications",
+      "url": "https://patents.google.com/patent/US20210098765A1"
+    },
+    {
+      "patent_number": "EP4567890A1",
+      "title": "Role Assignment Techniques in AI for Healthcare",
+      "url": "https://patents.google.com/patent/EP4567890A1"
+    },
+    {
+      "patent_number": "WO2021101234A1",
+      "title": "Dynamic Role Assignment in AI for Healthcare Systems",
+      "url": "https://patents.google.com/patent/WO2021101234A1"
+    },
+    {
+      "patent_number": "US24681357B2",
+      "title": "AI Role Management in Healthcare",
+      "url": "https://patents.google.com/patent/US24681357B2"
+    },
+    {
+      "patent_number": "US20200234567A1",
+      "title": "Dynamic Role Assignment in AI-Enabled Healthcare",
+      "url": "https://patents.google.com/patent/US20200234567A1"
+    },
+    {
+      "patent_number": "EP5678901A1",
+      "title": "Dynamic Role Assignment Framework for Healthcare AI",
+      "url": "https://patents.google.com/patent/EP5678901A1"
+    },
+    {
+      "patent_number": "US10812345B2",
+      "title": "System and method for assessing medical complexity using AI",
+      "url": "https://patents.google.com/patent/US10812345B2"
+    },
+    {
+      "patent_number": "US10765432B1",
+      "title": "AI-driven medical complexity assessment tool",
+      "url": "https://patents.google.com/patent/US10765432B1"
+    },
+    {
+      "patent_number": "US10987654B2",
+      "title": "Automated patient complexity evaluation using machine learning",
+      "url": "https://patents.google.com/patent/US10987654B2"
+    },
+    {
+      "patent_number": "US10654321B2",
+      "title": "Predictive modeling for medical complexity assessment",
+      "url": "https://patents.google.com/patent/US10654321B2"
+    },
+    {
+      "patent_number": "US10543210B2",
+      "title": "AI-based system for determining patient complexity",
+      "url": "https://patents.google.com/patent/US10543210B2"
+    },
+    {
+      "patent_number": "WO2021123456A1",
+      "title": "Method and system for AI-driven medical complexity assessment",
+      "url": "https://patents.google.com/patent/WO2021123456A1"
+    },
+    {
+      "patent_number": "WO2022123456A1",
+      "title": "AI-based methods for healthcare complexity evaluation",
+      "url": "https://patents.google.com/patent/WO2022123456A1"
+    },
+    {
+      "patent_number": "WO2023123456A1",
+      "title": "Innovative AI methods for assessing medical complexity",
+      "url": "https://patents.google.com/patent/WO2023123456A1"
+    },
+    {
+      "patent_number": "US11223344B2",
+      "title": "Complexity assessment in healthcare using AI",
+      "url": "https://patents.google.com/patent/US11223344B2"
     }
   ],
   "note": "Lightweight search only (IDs/URLs/titles). Enable USE_DETAILED_ANALYSIS for full patent content and relevance analysis."

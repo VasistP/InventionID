@@ -19,6 +19,10 @@ from llm_client import LLMClient
 from patent_search import GooglePatentsSearcher
 import config
 from utils.prompt_templates import PromptTemplates
+import concurrent.futures
+from typing import List, Dict, Tuple
+
+
 
 # Import optional modules based on config
 if config.USE_RATE_LIMITING:
@@ -47,6 +51,10 @@ class PatentSearchSystem:
         self.searcher = GooglePatentsSearcher(
             rate_limiter=self.rate_limiter if config.USE_RATE_LIMITING else None)
 
+        self.search_agents: List[GooglePatentsSearcher] = [
+            GooglePatentsSearcher(rate_limiter=self.rate_limiter)
+            for _ in range(5)
+        ]
         # Optional components based on config
 
     def _load_or_extract_invention(self, input_file: str) -> Dict:
@@ -107,55 +115,6 @@ class PatentSearchSystem:
         print("=" * 80)
         print("PATENT PRIOR ART SEARCH")
         print("=" * 80)
-        # file_path = Path(invention_file)
-        # is_pdf = file_path.suffix.lower() == ".pdf"
-
-        # # ==========================================
-        # # 0. SCORE INVENTION BEFORE EXTRACTION (PDF ONLY)
-        # # ==========================================
-        # if is_pdf:
-        #     print("\n[0/3] Evaluating invention potential FROM FULL PDF...")
-
-        #     extractor = InventionExtractor(output_dir="data")
-        #     full_pdf_text = extractor.extract_text(str(file_path))
-
-        #     # Load rubric & template
-        #     with open("Invention_guidelines.json") as f:
-        #         guideline = json.load(f)
-        #     with open("invention_evaluator_template.json") as f:
-        #         evaluator_template = json.load(f)
-
-        #     scoring_prompt = PromptTemplates.generate_invention_assessment_from_pdf(
-        #         full_pdf_text,
-        #         guideline,
-        #         evaluator_template
-        #     )
-
-        #     scoring_response = self.llm.generate(scoring_prompt)
-
-        #     try:
-        #         invention_score = json.loads(scoring_response)
-        #         print("\nInvention Scoring Result:")
-        #         print(json.dumps(invention_score, indent=2))
-
-        #         self.invention_score = invention_score
-        #     except:
-        #         print("\n⚠ Invalid scoring JSON:")
-        #         print(scoring_response)
-        #         return None
-
-        #     # STOP EARLY if not invention
-        #     if invention_score.get("final_classification", "").lower() == "scientific discovery":
-        #         print("\n⚠ PDF does not describe an invention. Stopping.")
-        #         return invention_score
-
-        #     print("\n✔ Invention detected. Proceeding to extraction...")
-
-        # # ==========================================
-        # # 1. Extract or load invention (existing logic)
-        # # ==========================================
-        # Load invention
-
 
         invention = self._load_or_extract_invention(invention_file)
         print(f"\nLoaded: {invention['invention_name']}")
@@ -251,28 +210,81 @@ Format: ["query 1", "query 2", ...]
 
     def _search_patents(self, queries: List[str], max_total: int) -> List[Dict]:
         """
-        Search for patents using queries
-        Returns lightweight results: patent_number, url, title only
+        Search for patents using multiple LLM-backed agents in parallel.
+        Returns lightweight results: patent_number, url, title only.
         """
-        all_patents = []
-        results_per_query = max(1, max_total // len(queries))
 
-        for i, query in enumerate(queries, 1):
-            if len(all_patents) >= max_total:
-                break
+        all_patents: List[Dict] = []
+        if not queries:
+            return all_patents
+
+        results_per_query = max(1, max_total // len(queries))
+        num_agents = max(1, len(self.search_agents))
+
+        def run_query(idx: int, query: str, agent_idx: int) -> Tuple[int, List[Dict]]:
+            """Worker: one agent handles one query."""
+            agent = self.search_agents[agent_idx]
 
             if config.VERBOSE_LOGGING:
-                print(f"  Query {i}/{len(queries)}: {query[:50]}...")
+                print(
+                    f"  Agent {agent_idx + 1}/{num_agents} "
+                    f"handling query {idx}/{len(queries)}: {query[:50]}..."
+                )
 
-            # Use rate limiter if enabled
+            # Optional global rate limiter
             if self.rate_limiter:
                 self.rate_limiter.acquire()
 
-            patents = self.searcher.search(
-                query, max_results=results_per_query)
-            all_patents.extend(patents)
+            patents = agent.search(query, max_results=results_per_query)
+            return idx, patents
+
+        max_workers = min(len(queries), num_agents)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = []
+            for i, query in enumerate(queries, 1):
+                # simple round-robin assignment of queries to agents
+                agent_idx = (i - 1) % num_agents
+                futures.append(executor.submit(run_query, i, query, agent_idx))
+
+            for future in concurrent.futures.as_completed(futures):
+                _, patents = future.result()
+                all_patents.extend(patents)
+
+                if len(all_patents) >= max_total:
+                    # Cancel remaining work once we hit the cap
+                    for f in futures:
+                        if not f.done():
+                            f.cancel()
+                    break
 
         return all_patents[:max_total]
+
+
+    # def _search_patents(self, queries: List[str], max_total: int) -> List[Dict]:
+    #     """
+    #     Search for patents using queries
+    #     Returns lightweight results: patent_number, url, title only
+    #     """
+    #     all_patents = []
+    #     results_per_query = max(1, max_total // len(queries))
+
+    #     for i, query in enumerate(queries, 1):
+    #         if len(all_patents) >= max_total:
+    #             break
+
+    #         if config.VERBOSE_LOGGING:
+    #             print(f"  Query {i}/{len(queries)}: {query[:50]}...")
+
+    #         # Use rate limiter if enabled
+    #         if self.rate_limiter:
+    #             self.rate_limiter.acquire()
+
+    #         patents = self.searcher.search(
+    #             query, max_results=results_per_query)
+    #         all_patents.extend(patents)
+
+    #     return all_patents[:max_total]
 
     def _deduplicate_patents(self, patents: List[Dict]) -> List[Dict]:
         """Remove duplicate patents by patent_number"""
@@ -364,7 +376,7 @@ def main():
         description='Patent Prior Art Search System')
     parser.add_argument(
         '--input',
-        default='data/sample_invention.json',
+        default='data/Kim et al. - 2024 - MDAgents An Adaptive Collaboration of LLMs for Medical Decision-Making.pdf',
         help='Path to invention JSON or PDF file'
     )
     parser.add_argument(
@@ -374,6 +386,7 @@ def main():
     )
     parser.add_argument(
         '--config',
+        default='comprehensive',
         choices=['testing', 'quick_scan', 'budget', 'comprehensive'],
         help='Use a preset configuration'
     )

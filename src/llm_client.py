@@ -112,24 +112,77 @@ class LLMClient:
         print("Message: ", response_text)
         return response_text
 
+    # def _generate_openai(self, prompt: str, files: Optional[list], max_tokens: int, temperature: float) -> str:
+    #     """Generate using OpenAI"""
+    #     if not self.openai:
+    #         raise ValueError("OPENAI_API_KEY not set")
+
+    #     if self.rate_limiter:
+    #         self.rate_limiter.acquire()
+
+    #     response = self.openai.chat.completions.create(
+    #         model=self.model,
+    #         max_tokens=max_tokens,
+    #         temperature=temperature,
+    #         messages=[
+    #             {"role": "user", "content": prompt}
+    #         ]
+    #     )
+
+    #     return response.choices[0].message.content
+
     def _generate_openai(self, prompt: str, files: Optional[list], max_tokens: int, temperature: float) -> str:
-        """Generate using OpenAI"""
+        
         if not self.openai:
             raise ValueError("OPENAI_API_KEY not set")
 
         if self.rate_limiter:
             self.rate_limiter.acquire()
 
-        response = self.openai.chat.completions.create(
-            model=self.model,
-            max_tokens=max_tokens,
+        # 1) Upload files (if any) and collect file_ids
+        file_ids = []
+        if files:
+            for path in files:
+                # path should be a filesystem path like "paper.pdf"
+                f = self.openai.files.create(
+                    file=open(path, "rb"),
+                    purpose="user_data",  # recommended for model inputs
+                )
+                file_ids.append(f.id)
+
+        # 2) Build content blocks for the Responses API
+        content = []
+
+        # Attach each file as an input_file block
+        for fid in file_ids:
+            content.append({
+                "type": "input_file",
+                "file_id": fid,
+            })
+
+        # Then the actual text instruction
+        content.append({
+            "type": "input_text",
+            "text": prompt,
+        })
+
+        # 3) Call the Responses API
+        response = self.openai.responses.create(
+            model=self.model,  # must be a vision-capable model like "gpt-4o-mini" or "gpt-4o"
+            input=[{
+                "role": "user",
+                "content": content,
+            }],
+            max_output_tokens=max_tokens,
             temperature=temperature,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
         )
 
-        return response.choices[0].message.content
+        # 4) Extract the text answer
+        # response.output[0].content[0].text in the new SDK
+        first_item = response.output[0]
+        first_content = first_item.content[0]
+        # print(first_content.text)
+        return first_content.text
 
     def _generate_gemini(self, prompt: str, files: Optional[list], max_tokens: int, temperature: float) -> str:
         """Generate using Gemini"""

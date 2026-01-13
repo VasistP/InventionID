@@ -2,35 +2,35 @@
   "evaluator_template": {
     "instructions": "For each facet (A\u2013C), extract relevant text or evidence from the paper, justify the score, and provide short reasoning. After all facets are scored, sum the total and apply decision rules for classification.",
     "fields": {
-      "paper_title": "Integrated System for Bacterial Detection and Biofilm Treatment on Indwelling Urinary Catheters",
-      "evaluator_name": "AI Invention Evaluator",
-      "evaluation_date": "2024-05-15",
+      "paper_title": "MDAgents: An Adaptive Collaboration of LLMs for Medical Decision-Making",
+      "evaluator_name": "Expert Evaluator",
+      "evaluation_date": "2024-10-30",
       "facets": [
         {
           "facet_id": "A",
           "facet_name": "Nature of the Described Innovation",
           "score": "2",
-          "evidence_quote": "This work introduces an integrated system incorporated seamlessly with a commercial Foley urinary catheter for bacterial growth sensing and biofilm treatment. Methods: The system is comprised of flexible, interdigitated electrodes incorporated with a urinary catheter via a 3D-printed insert for impedance sensing and bioelectric effect-based treatment. Each of the functions were wirelessly controlled using a custom application that provides a user-friendly interface for communicating with a custom PCB via Bluetooth to facilitate implementation in practice.",
-          "reasoning": "The paper explicitly describes a tangible 'integrated system' and 'modified catheter system' which is a manufactured product and apparatus. It details its components (electrodes, 3D-printed insert, PCB, mobile application) and their functions for bacterial detection and biofilm treatment, clearly defining what it is and how it operates."
+          "evidence_quote": "We introduce a novel multi-agent framework, named Medical Decision-making Agents (MDAgents) that helps to address this gap by automatically assigning a collaboration structure to a team of LLMs.",
+          "reasoning": "The paper clearly defines MDAgents as a framework for medical decision-making, detailing its function and structure."
         },
         {
           "facet_id": "B",
           "facet_name": "Conceptual Foundation or Possible Judicial Exception",
-          "score": "2",
-          "evidence_quote": "In this work we present an integrated system for bacterial monitoring and treatment on indwelling Foley catheters. A 3D-printable insert module has been designed to allow integration of interdigitated electrodes (IDEs) with a commercially available urinary catheter... The IDE based sensor is fabricated on a flexible polyimide substrate and is controlled wirelessly using a custom designed printed circuit board (PCB) and a custom mobile application.",
-          "reasoning": "The work presents a fully specified, reproducible mechanism, including detailed hardware (3D-printed insert, flexible IDEs, custom PCB with specific ICs like AD5933, AD2S99, BGM121 MCU) and custom software (mobile app, firmware). It goes beyond a mere conceptual idea by detailing the architecture and operational steps for implementation."
+          "score": "1",
+          "evidence_quote": "MDAgents effectively determines medical complexity to optimize for efficiency and accuracy across diverse medical tasks.",
+          "reasoning": "While the framework has a defined mechanism, it heavily relies on conceptual principles without fully specified implementations for all scenarios."
         },
         {
           "facet_id": "C",
           "facet_name": "Practical Application or Technical Integration",
           "score": "2",
-          "evidence_quote": "The integrated catheter system maintains the primary functions of indwelling catheters - urine drainage, balloon inflation - while being capable of detecting the growth of Escherichia coli, with an average decrease in impedance of 13.0% after 24 hours, tested in a newly-developed simulated bladder environment. Furthermore, the system enables bioelectric effect-based biofilm reduction, which is performed by applying a low-intensity electric field that increases the susceptibility of biofilm bacteria to antimicrobials, ultimately reducing the required antibiotic dosage.",
-          "reasoning": "The paper provides quantitative, objective evidence of the system's performance, including a 13.0% decrease in impedance for bacterial detection and a statistically significant reduction in biofilm biomass (P < 0.05) with bioelectric effect treatment, all demonstrated in a realistic in vitro bladder model. This shows measurable improvement over a defined baseline."
+          "evidence_quote": "MDAgents achieved the best performance in seven out of ten benchmarks on tasks requiring an understanding of medical knowledge and multi-modal reasoning.",
+          "reasoning": "The framework demonstrates measurable improvements in performance across various medical benchmarks, indicating practical application."
         }
       ],
-      "total_score": "6",
+      "total_score": "5",
       "final_classification": "Potential Invention",
-      "justification_summary": "The described work presents a fully integrated system (apparatus and method) for bacterial detection and biofilm treatment on urinary catheters. It includes a concrete, reproducible technical implementation with custom hardware (electrodes, 3D-printed insert, custom PCB) and software (mobile app, firmware). The system demonstrates measurable performance improvements, such as a 13.0% decrease in impedance for bacterial detection and a significant reduction in biofilm biomass, validated in a realistic in vitro model. These aspects align with the criteria for a potential invention.",
+      "justification_summary": "The framework is well-defined and shows measurable performance improvements, indicating it meets invention-level criteria.",
       "next_step_recommendation": "Prepare draft disclosure and initiate prior-art search."
     }
   },
