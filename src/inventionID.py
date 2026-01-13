@@ -139,7 +139,7 @@ class InventionExtractor:
         files = [
             pdf_path
         ]
-
+        print(pdf_path)
         print("Analyzing document for inventions...")
         response = self.llm.generate(
             prompt, files, max_tokens=8000, temperature=0.2)
@@ -256,13 +256,13 @@ class InventionExtractor:
 
         print("\n[1/3] Identifying inventions using LLM...")
 
-        test = self.assess_invention_from_pdf(pdf_path)
+        # test = self.assess_invention_from_pdf(pdf_path)
 
-        with open("test.json", "w") as f:
-            json.dump(test, f, indent=2)
+        # with open("test.json", "w") as f:
+        #     json.dump(test, f, indent=2)
 
-        with open("test.log", "w") as f:
-            f.write(json.dumps(test, indent=2))
+        # with open("test.log", "w") as f:
+        #     f.write(json.dumps(test, indent=2))
 
 
         inventions = self.identify_inventions(pdf_path)
