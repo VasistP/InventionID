@@ -1,55 +1,55 @@
 {
   "1": {
     "invention_id": "INV-2024-001",
-    "invention_name": "Medical Decision-Making Agents Framework",
-    "technical_description": "The MDAgents framework utilizes multiple large language models (LLMs) to adaptively structure collaboration among agents based on the complexity of medical queries. It incorporates a medical complexity check, expert recruitment, and a multi-step decision-making process to enhance accuracy in medical diagnosis.",
-    "problem_statement": "Medical decision-making is often complex and requires collaboration among various specialists. Traditional methods may not effectively address the varying complexities of medical cases, leading to suboptimal outcomes.",
-    "solution_approach": "MDAgents dynamically assigns roles to LLMs based on the assessed complexity of the medical query, allowing for tailored collaboration. This approach optimizes the decision-making process by integrating insights from multiple medical experts.",
+    "invention_name": "Medical Decision-making Agents Framework",
+    "technical_description": "The MDAgents framework utilizes multiple large language models (LLMs) to adaptively structure collaboration for medical decision-making. It assesses the complexity of medical queries and recruits appropriate specialists to address them. This dynamic approach mirrors real-world medical practices, enhancing diagnostic accuracy and efficiency.",
+    "problem_statement": "Current medical decision-making processes often lack the adaptability needed to handle varying complexities in patient cases. Traditional methods may not effectively integrate diverse medical expertise, leading to suboptimal outcomes.",
+    "solution_approach": "MDAgents addresses this issue by dynamically assigning roles to LLMs based on the assessed complexity of medical queries. This allows for tailored collaboration among specialists, improving the accuracy and reliability of medical diagnoses.",
     "key_technical_features": [
       "Dynamic role assignment",
       "Multi-agent collaboration",
-      "Medical complexity assessment",
-      "Iterative discussion process",
-      "Final decision synthesis"
+      "Complexity assessment",
+      "Iterative discussions",
+      "Consensus building"
     ],
     "statutory_category": "Process",
     "domain_classification": "AI/ML",
     "inventor_keywords": [
       "medical AI",
       "decision support",
-      "collaborative framework",
-      "large language models",
+      "multi-agent systems",
+      "LLM",
       "diagnostic accuracy"
     ],
     "context": {
       "document_section": "Section 3",
-      "confidence_score": 0.9
+      "confidence_score": 0.95
     }
   },
   "2": {
     "invention_id": "INV-2024-002",
     "invention_name": "Adaptive Medical Complexity Classification",
-    "technical_description": "This invention involves a method for classifying medical queries into low, moderate, or high complexity using a large language model. The classification informs the recruitment of appropriate medical experts for collaborative decision-making.",
-    "problem_statement": "Accurate classification of medical query complexity is crucial for effective diagnosis and treatment. Misclassification can lead to inappropriate resource allocation and ineffective medical interventions.",
-    "solution_approach": "The framework employs a moderator LLM to evaluate the complexity of medical queries, ensuring that the right level of expertise is engaged based on the complexity classification. This adaptive approach enhances the efficiency of the medical decision-making process.",
+    "technical_description": "This invention involves a method for classifying the complexity of medical queries using a large language model. It categorizes queries into low, moderate, or high complexity, guiding the recruitment of appropriate medical experts for decision-making.",
+    "problem_statement": "Medical queries often vary in complexity, and misclassification can lead to inadequate responses or unnecessary consultations. A reliable classification system is essential for optimizing resource allocation in healthcare.",
+    "solution_approach": "The adaptive classification method uses LLMs to evaluate and categorize medical queries, ensuring that the complexity is accurately assessed. This allows for efficient deployment of medical expertise based on the specific needs of each case.",
     "key_technical_features": [
       "LLM-based classification",
-      "Expert recruitment strategy",
-      "Dynamic adaptation",
-      "Multi-tiered collaboration"
+      "Complexity tiers",
+      "Resource optimization",
+      "Expert recruitment guidance"
     ],
     "statutory_category": "Process",
     "domain_classification": "AI/ML",
     "inventor_keywords": [
       "complexity assessment",
       "medical queries",
-      "expert systems",
-      "adaptive learning",
-      "resource allocation"
+      "resource allocation",
+      "AI classification",
+      "healthcare optimization"
     ],
     "context": {
       "document_section": "Section 3.2",
-      "confidence_score": 0.85
+      "confidence_score": 0.9
     }
   }
 }
