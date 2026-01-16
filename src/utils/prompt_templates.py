@@ -414,43 +414,187 @@ Format:
 
 
     @staticmethod
-    def generate_invention_assessment_from_pdf(
-                guideline: dict,
-                evaluator_template: dict
-    ) -> str:
+    def generate_invention_assessment_from_pdf() -> str:
         """
         First-stage prompt: LLM reads the FULL PDF text and applies
         the invention rubric BEFORE any extraction or patent search.
+
+        NOTE:
+        - Rubric and output template are inlined as plain text.
+        - No json.dumps is used.
         """
 
-        return f"""
+        return """
 You are an expert invention evaluator.
 
 You will be given a PDF file as input (already uploaded).
 Do NOT repeat or summarize the entire PDF.
-Extract only what is needed.
+Extract only what is needed to evaluate whether this work is a potential invention.
 
 ==========================
 ### INVENTION SCORING RUBRIC (REFERENCE ONLY — DO NOT COPY)
 ==========================
-{json.dumps(guideline, indent=2)}
+
+You must evaluate the paper along three facets (A–C) and then apply decision rules
+based on the total score.
+
+Facet A — Nature of the Described Innovation
+- Goal: Determine whether the work describes a method/process, system/apparatus,
+  manufactured product/tool, or composition/material.
+- Answer these questions using evidence from the paper:
+  1) What kind of thing is being presented — a method or process, system or apparatus,
+     manufactured product or tool, or composition or material?
+  2) What specific features, functions, or relationships in the research description
+     indicate this classification?
+  3) Which part of the paper’s approach or design demonstrates how it operates
+     or what it is made of?
+  4) Why does the described work fit best as a method, system, product, or composition?
+- Scoring for Facet A:
+  - 0: No identifiable inventive element; only discusses ideas or correlations
+       without describing a process, system, product, or material.
+  - 1: Vague or implied; mentions a “framework”, “approach”, or “model” but does not
+       clearly define what it is or how it operates.
+  - 2: Clearly defined; explicitly states the invention type and explains what it is
+       or how it runs (method, system, product, or composition). A direct quote can
+       identify its type.
+
+Facet B — Conceptual Foundation or Possible Judicial Exception
+- Goal: Check whether the core contribution is just an abstract idea / theory / mathematical
+  model / natural law, or whether there is a concrete mechanism.
+- Answer these questions using evidence from the paper:
+  1) Does the paper’s main contribution rely primarily on a conceptual principle,
+     mathematical model, natural law, or natural phenomenon rather than a concrete
+     technical implementation?
+  2) Which aspects of the described work show focus on an underlying idea or correlation
+     instead of a fully engineered mechanism or process?
+  3) Could the same concept, relationship, or behavior be carried out on generic commercial
+     hardware and standard software without introducing any new computational mechanism,
+     architecture, or specialized system?
+- Scoring for Facet B:
+  - 0: Pure idea, theory, or correlation; no defined mechanism or architecture.
+  - 1: Partial mechanism; some algorithmic steps, schematic, or pseudo-process,
+       but incomplete or not reproducible.
+  - 2: Fully specified mechanism; reproducible steps, system architecture, or design
+       that someone skilled in the art could implement.
+
+Facet C — Practical Application or Technical Integration
+- Goal: Identify whether there is a concrete practical application with measurable effect.
+- Answer these questions using evidence from the paper:
+  1) What specific mechanisms, interactions, or operations transform the conceptual idea
+     into a real-world implementation or effect?
+  2) How does the computer, device, experimental setup, or material perform the described
+     method or process?
+  3) What physical, computational, or technical operation is being improved, optimized,
+     or newly enabled?
+- Scoring for Facet C:
+  - 0: No measurable technical output or test; results are qualitative, speculative,
+       or unverified.
+  - 1: Includes quantitative data or metrics but without a clear baseline, benchmark,
+       or comparison to prior work.
+  - 2: Shows a measurable improvement or performance change relative to a defined baseline
+       or standard, supported by numeric or objective evidence.
+
+Decision Rules (Total Score Interpretation)
+- After scoring A, B, and C (each 0–2), compute total_score = A + B + C.
+- Interpret total_score as follows:
+  - 0–2:
+    - Classification: "Scientific Discovery"
+    - Interpretation: Primarily theoretical or conceptual; lacks concrete mechanism
+      or measurable effect.
+    - Next step: Archive or reference only.
+  - 3–4:
+    - Classification: "Borderline Case"
+    - Interpretation: Partially developed; some mechanism or data present
+      but incomplete or unclear.
+    - Next step: Request clarification or missing details from authors.
+  - 5–6:
+    - Classification: "Potential Invention"
+    - Interpretation: Technically implemented with measurable performance; likely
+      meets invention-level criteria.
+    - Next step: Prepare draft disclosure and initiate prior-art search.
+
+Guardrails
+- If Facet A score = 0 (no identifiable inventive element), classify as "Scientific Discovery"
+  immediately; no further scoring is needed.
+- If Facet B score = 0 (no concrete mechanism or architecture), classify as "Scientific Discovery"
+  immediately; no further scoring is needed.
+- Use evidence primarily from Methods, Design, and Results sections — avoid relying only on
+  Abstracts or Introductions.
 
 ==========================
 ### OUTPUT TEMPLATE (FILL THIS OUT — DO NOT COPY)
 ==========================
-{json.dumps(evaluator_template, indent=2)}
+
+You must return a SINGLE JSON object with the following fields and structure:
+
+- paper_title (string)
+- evaluator_name (string)
+- evaluation_date (string, e.g., "2026-01-16")
+- facets (array of objects, one for each facet A, B, C), where each facet object has:
+  - facet_id (string; one of "A", "B", "C")
+  - facet_name (string; e.g., "Nature of the Described Innovation")
+  - score (integer 0, 1, or 2)
+  - evidence_quote (string; short quote(s) from the paper that support the score)
+  - reasoning (string; brief explanation of why this score was chosen)
+- total_score (integer; sum of A + B + C)
+- final_classification (string; one of "Scientific Discovery",
+  "Borderline Case", or "Potential Invention")
+- justification_summary (string; short paragraph summarizing why this classification was chosen)
+- next_step_recommendation (string; recommended next action, consistent with the decision rules)
+
+Your output JSON must therefore have this high-level shape:
+
+{
+  "paper_title": "...",
+  "evaluator_name": "...",
+  "evaluation_date": "...",
+  "facets": [
+    {
+      "facet_id": "A",
+      "facet_name": "Nature of the Described Innovation",
+      "score": 0,
+      "evidence_quote": "...",
+      "reasoning": "..."
+    },
+    {
+      "facet_id": "B",
+      "facet_name": "Conceptual Foundation or Possible Judicial Exception",
+      "score": 0,
+      "evidence_quote": "...",
+      "reasoning": "..."
+    },
+    {
+      "facet_id": "C",
+      "facet_name": "Practical Application or Technical Integration",
+      "score": 0,
+      "evidence_quote": "...",
+      "reasoning": "..."
+    }
+  ],
+  "total_score": 0,
+  "final_classification": "...",
+  "justification_summary": "...",
+  "next_step_recommendation": "..."
+}
+
+This schema is an example of the required structure only.
+You MUST fill in all fields with values inferred from the PDF.
 
 ==========================
 ### TASK
 ==========================
+
 1. Read the uploaded PDF fully.
-2. Apply the rubric exactly.
-3. Fill in the OUTPUT TEMPLATE.
-4. Do NOT repeat the rubric or the template.
-5. Do NOT add explanations outside JSON.
-6. Do NOT wrap the output in ```json fences.
-7. Return ONLY a valid JSON object that matches the OUTPUT TEMPLATE.
+2. Apply Facets A–C using the rubric exactly.
+3. Respect the guardrails and decision rules when setting the final_classification
+   and next_step_recommendation.
+4. Populate ALL fields in the OUTPUT TEMPLATE structure above.
+5. Do NOT repeat or restate the rubric or this template in your answer.
+6. Do NOT add explanations outside JSON.
+7. Do NOT wrap the output in ```json fences or any other markdown.
+8. Return ONLY a valid JSON object that matches the required structure.
 """
+
 
 
     @staticmethod
