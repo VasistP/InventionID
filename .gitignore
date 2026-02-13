@@ -1,0 +1,95 @@
+# =========================
+# OS / Editor
+# =========================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+dist/
+build/
+pip-wheel-metadata/
+*.egg
+.venv/
+venv/
+ENV/
+.env
+.env.*
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.cache/
+
+# =========================
+# Jupyter
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# Logs / runtime
+# =========================
+logs/
+*.log
+
+# =========================
+# Secrets / credentials (DO NOT COMMIT)
+# =========================
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.der
+*.csr
+*.kdbx
+credentials*.json
+aws-credentials*
+.envrc
+
+# =========================
+# AWS / local data outputs
+# =========================
+*.sqlite
+*.db
+data/
+outputs/
+results/
+tmp/
+temp/
+
+# Textract / OCR artifacts
+textract_output/
+textract_outputs/
+*.textract.json
+*.ocr.json
+
+# =========================
+# Model / cache artifacts
+# =========================
+.cache/
+cache/
+cached/
+*_cache/
+*.cache
+*.pkl
+*.pickle
+
+# =========================
+# PDFs and large binaries (optional)
+# Uncomment if you don't want PDFs in git
+# =========================
+# *.pdf
+# *.zip
+# *.tar.gz
+# *.7z

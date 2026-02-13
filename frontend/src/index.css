@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@media print {
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* Let content flow naturally across pages instead of being clipped by the scroll container */
+  .flex.h-screen {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .flex-1.overflow-y-auto {
+    overflow: visible !important;
+    height: auto !important;
+  }
+}

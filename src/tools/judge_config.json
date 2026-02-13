@@ -1,0 +1,59 @@
+{
+  "model_id": "us.meta.llama3-1-70b-instruct-v1:0",
+  "temperature": 0.3,
+  "max_tokens": 1000,
+  "confidence_combination": "minimum",
+
+  "dimensions": {
+    "completeness": {
+      "weight": 1.0,
+      "max_score": 2,
+      "description": "Are all 9 required fields filled with substantive content? Are key_technical_features actually 5 distinct items? Are citations present for each field?",
+      "scoring": {
+        "0": "Multiple fields missing, empty, or placeholder values (e.g. N/A)",
+        "1": "Most fields present but some are thin or generic",
+        "2": "All fields filled with substantive, detailed content"
+      }
+    },
+    "specificity": {
+      "weight": 1.0,
+      "max_score": 2,
+      "description": "Is technical_description concrete (mentions actual techniques, algorithms, architectures) or vague? Are inventor_keywords precise domain terms or generic words?",
+      "scoring": {
+        "0": "Vague descriptions, generic keywords like 'AI', 'system', 'method'",
+        "1": "Some specific terms but mixed with generic language",
+        "2": "Precise technical language, named algorithms/techniques, domain-specific terms"
+      }
+    },
+    "internal_consistency": {
+      "weight": 1.0,
+      "max_score": 2,
+      "description": "Does solution_approach actually address the problem_statement? Do key_technical_features align with technical_description? Does statutory_category match what is described?",
+      "scoring": {
+        "0": "Contradictions or clear misalignment between fields",
+        "1": "Generally consistent but some fields feel disconnected",
+        "2": "All fields tell a coherent, aligned story"
+      }
+    },
+    "citation_quality": {
+      "weight": 1.0,
+      "max_score": 2,
+      "description": "Are citation snippets actual quoted text (specific sentences with section references) or fabricated/paraphrased? Do they look like real paper excerpts?",
+      "scoring": {
+        "0": "Citations look fabricated, overly generic, or missing section references",
+        "1": "Some citations look real but others are paraphrased or vague",
+        "2": "Citations are clearly direct quotes with section IDs, read like real paper excerpts"
+      }
+    },
+    "patent_readiness": {
+      "weight": 1.0,
+      "max_score": 2,
+      "description": "Is invention_name concise and descriptive? Is the description detailed enough that a patent searcher could find prior art from it?",
+      "scoring": {
+        "0": "Name is vague or too broad, description lacks searchable technical detail",
+        "1": "Reasonable name, description has some searchable terms but could be sharper",
+        "2": "Clear inventive name, description contains enough technical specifics for effective prior art search"
+      }
+    }
+  }
+}

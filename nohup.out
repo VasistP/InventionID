@@ -1,0 +1,1518 @@
+============================================================
+Running: input/Kim et al. - 2024 - MDAgents An Adaptive Collaboration of LLMs for Medical Decision-Making.pdf
+============================================================
+/home/ec2-user/.local/lib/python3.9/site-packages/boto3/compat.py:89: PythonDeprecationWarning: Boto3 will no longer support Python 3.9 starting April 29, 2026. To continue receiving service updates, bug fixes, and security updates please upgrade to Python 3.10 or later. More information can be found here: https://aws.amazon.com/blogs/developer/python-support-policy-updates-for-aws-sdks-and-tools/
+  warnings.warn(warning, PythonDeprecationWarning)
+
+############################################################
+PATENT PRIOR ART SEARCH PIPELINE (Prompt-Cached)
+############################################################
+Input: s3://patent-pdf-input-786827631714/input/Kim et al. - 2024 - MDAgents An Adaptive Collaboration of LLMs for Medical Decision-Making.pdf
+Models: Sonnet (agent w/ caching), Opus (analysis)
+  Starting Textract Layout extraction (section-wise)...
+  Extracted 22 sections
+
+============================================================
+STAGE 1: INVENTION EXTRACTION (ReAct Agent + Prompt Caching)
+============================================================
+
+============================================================
+INVENTION EXTRACTION AGENT (ReAct + Prompt Caching)
+============================================================
+Sections: 22 | Total chars: 146876
+Model: us.anthropic.claude-opus-4-20250514-v1:0
+Confidence threshold: 0.85
+Section-wise document passed as cached system prefix
+
+--- Iteration 1/6 ---
+Action: EXTRACT (full document in cache)
+  Parse error in extraction, requesting immediate fix...
+  Schema validation: PASSED
+  Extracted: Medical Decision-making Agents (MDAgents) Framework
+  Tool: PATENTABILITY_CHECK (3-facet rubric)
+  Classification: Potential Invention (score: 6/6)
+    Facet A (Nature of the Described Innovation): 2/2 — The document clearly defines MDAgents as a process/method with explicit operatio
+    Facet B (Conceptual Foundation or Possible Judicial Exception): 2/2 — The document provides a fully specified mechanism with reproducible algorithmic 
+    Facet C (Practical Application or Technical Integration): 2/2 — The framework demonstrates measurable improvements with statistical significance
+  Justification: MDAgents presents a concrete process with fully specified algorithmic steps, clear system architecture, and demonstrates statistically significant performance improvements over existing methods across multiple medical benchmarks.
+Action: VALIDATE
+  Self-reported confidence: 0.88
+  Suggestions empty: False
+  Valid: True
+  Tool: JUDGE_BOT (independent confidence calibration)
+  Judge confidence: 1.00
+    completeness: 2 — All required fields are filled with substantive content, including five distinct key technical features and citations for each field.
+    specificity: 2 — The technical description is concrete, mentioning specific techniques and architectures, and the inventor keywords are precise domain terms.
+    internal_consistency: 2 — The solution approach addresses the problem statement, and the key technical features align with the technical description, demonstrating a coherent and aligned narrative.
+    citation_quality: 2 — The citations appear to be direct quotes with section references, reading like real paper excerpts.
+    patent_readiness: 2 — The invention name is concise and descriptive, and the description contains enough technical specifics for effective prior art search.
+  Assessment: This invention extraction is of exceptionally high quality, demonstrating thoroughness, specificity, and consistency throughout. It is well-suited for patent search and analysis.
+  Calibrated confidence: 0.88 (self=0.88, judge=1.00, strategy=minimum)
+  STOP: confidence>=0.85
+
+============================================================
+EXTRACTION COMPLETE
+Invention: Medical Decision-making Agents (MDAgents) Framework
+Citations: {'invention_name': ['We introduce a novel multi-agent framework, named Medical Decision-making Agents (MDAgents)'], 'technical_description': ['MDAgents is a multi-agent framework that automatically assigns collaboration structures to teams of Large Language Models (LLMs) based on medical task complexity', 'The system emulates real-world medical decision-making by adapting between solo practitioners, multi-disciplinary teams, and integrated care teams'], 'problem_statement': ['Medical Decision-Making (MDM) is a multifaceted and intricate process in which clinicians collaboratively navigate diverse sources of information', 'existing systems use static architectures that may lead to suboptimal configurations and computational inefficiency'], 'solution_approach': ['The framework performs medical complexity classification, recruits appropriate expert agents, facilitates collaborative discussion or report generation based on complexity level', 'It dynamically assigns LLMs to work independently or in groups, mirroring how real-world medical teams adapt to different task complexities'], 'key_technical_features': ['Medical complexity classifier categorizing queries as low/moderate/high', 'Dynamic expert recruitment system assembling specialist agents', 'Consensus-building through iterative agent discussions'], 'domain_classification': ['Healthcare AI/Medical Decision Support Systems', 'medical decision-making framework that leverages LLMs'], 'statutory_category': ['The design of MDAgents (Figures 1 and 2) incorporates four stages: 1) Medical Complexity Check... 2) Expert Recruitment... 3) Analysis and Synthesis... 4) Decision-making'], 'inventor_keywords': ['multi-agent framework', 'medical decision-making', 'adaptive collaboration']}
+Patentability: Potential Invention (6/6)
+Iterations: 1
+Stop reason: confidence>=0.85
+Final confidence: 0.88
+Conversation turns: 8
+  Agent logs saved: logs/react_agent_cached_20260209_210259.json
+
+============================================================
+STAGE 2: GENERATE SEARCH QUERIES
+============================================================
+  Generated 10 queries:
+    - multi-agent system medical decision support LLM
+    - adaptive collaboration framework healthcare artificial intelligence
+    - dynamic expert recruitment medical diagnosis system
+    - complexity-based task allocation clinical decision making
+    - multi-tiered agent collaboration medical knowledge synthesis
+    - consensus building iterative discussion healthcare AI agents
+    - medical query complexity classification expert assignment
+    - distributed artificial intelligence clinical decision support system
+    - adaptive team formation medical diagnosis multi-agent
+    - entropy convergence tracking collaborative medical reasoning
+
+============================================================
+STAGE 3: PATENT SEARCH (SerpAPI, parallel)
+============================================================
+  [SEARCH] multi-agent system medical decision support LLM
+  [SEARCH] adaptive collaboration framework healthcare artificial intelligence
+  [SEARCH] dynamic expert recruitment medical diagnosis system
+  [SEARCH] complexity-based task allocation clinical decision making
+  [SEARCH] multi-tiered agent collaboration medical knowledge synthesis
+  [DONE] adaptive collaboration framework healthcare artificial intelligence -> 5 results
+  [SEARCH] consensus building iterative discussion healthcare AI agents
+  [DONE] multi-agent system medical decision support LLM -> 5 results
+  [SEARCH] medical query complexity classification expert assignment
+  [DONE] dynamic expert recruitment medical diagnosis system -> 5 results
+  [SEARCH] distributed artificial intelligence clinical decision support system
+  [DONE] complexity-based task allocation clinical decision making -> 5 results
+  [SEARCH] adaptive team formation medical diagnosis multi-agent
+  [DONE] multi-tiered agent collaboration medical knowledge synthesis -> 5 results
+  [SEARCH] entropy convergence tracking collaborative medical reasoning
+  [DONE] medical query complexity classification expert assignment -> 5 results
+  [DONE] distributed artificial intelligence clinical decision support system -> 5 results
+  [DONE] consensus building iterative discussion healthcare AI agents -> 5 results
+  [DONE] entropy convergence tracking collaborative medical reasoning -> 5 results
+  [DONE] adaptive team formation medical diagnosis multi-agent -> 5 results
+  Merging results for: 'multi-agent system medical decision support LLM'
+  Merging results for: 'adaptive collaboration framework healthcare artificial intelligence'
+  Merging results for: 'dynamic expert recruitment medical diagnosis system'
+  Merging results for: 'complexity-based task allocation clinical decision making'
+  Merging results for: 'multi-tiered agent collaboration medical knowledge synthesis'
+  Merging results for: 'consensus building iterative discussion healthcare AI agents'
+  Merging results for: 'medical query complexity classification expert assignment'
+  Merging results for: 'distributed artificial intelligence clinical decision support system'
+  Merging results for: 'adaptive team formation medical diagnosis multi-agent'
+  Merging results for: 'entropy convergence tracking collaborative medical reasoning'
+  Total unique patents: 48
+
+============================================================
+STAGE 4: FETCH PATENT DETAILS
+============================================================
+  Using cached: AU2014339900B2
+  Using cached: CA3003737C
+  Using cached: US20210338973A1
+  Using cached: AU2019219864B2
+  Using cached: US10049447B2
+  Using cached: CA3001304C
+  Using cached: US20210313077A1
+  Using cached: US11043307B2
+  Using cached: EP3262815B1
+  Using cached: US10332639B2
+  Got details for 10 patents
+
+============================================================
+STAGE 5: PATENT ANALYSIS (Opus)
+============================================================
+  Analyzed 5 patents:
+    AU2014339900B2: related (0.1)
+    CA3003737C: related (0.05)
+    US20210338973A1: related (0.2)
+    AU2019219864B2: related (0.15)
+    US10049447B2: relevant (0.65)
+
+============================================================
+STAGE 6: FINAL REPORT
+============================================================
+  Summary:
+    Patents found: 10
+    Blocking: 0
+    Relevant: 1
+    Related: 4
+
+Report saved: s3://patent-pdf-input-786827631714/results/Kim et al. - 2024 - MDAgents An Adaptive Collaboration of LLMs for Medical Decision-Making_report.json
+
+============================================================
+PIPELINE COMPLETE
+============================================================
+============================================================
+Running: input/Multi-Quadruped Cooperative Object Transport: Learning Decentralized Pinch-Lift-Move.pdf
+============================================================
+/home/ec2-user/.local/lib/python3.9/site-packages/boto3/compat.py:89: PythonDeprecationWarning: Boto3 will no longer support Python 3.9 starting April 29, 2026. To continue receiving service updates, bug fixes, and security updates please upgrade to Python 3.10 or later. More information can be found here: https://aws.amazon.com/blogs/developer/python-support-policy-updates-for-aws-sdks-and-tools/
+  warnings.warn(warning, PythonDeprecationWarning)
+
+############################################################
+PATENT PRIOR ART SEARCH PIPELINE (Prompt-Cached)
+############################################################
+Input: s3://patent-pdf-input-786827631714/input/Multi-Quadruped Cooperative Object Transport: Learning Decentralized Pinch-Lift-Move.pdf
+Models: Sonnet (agent w/ caching), Opus (analysis)
+  Starting Textract Layout extraction (section-wise)...
+  Extracted 2 sections
+
+============================================================
+STAGE 1: INVENTION EXTRACTION (ReAct Agent + Prompt Caching)
+============================================================
+
+============================================================
+INVENTION EXTRACTION AGENT (ReAct + Prompt Caching)
+============================================================
+Sections: 2 | Total chars: 45791
+Model: us.anthropic.claude-opus-4-20250514-v1:0
+Confidence threshold: 0.85
+Section-wise document passed as cached system prefix
+
+--- Iteration 1/6 ---
+Action: EXTRACT (full document in cache)
+  Iteration 1 failed: Read timeout on endpoint URL: "https://bedrock-runtime.us-east-2.amazonaws.com/model/us.anthropic.claude-opus-4-20250514-v1%3A0/invoke"
+--- Iteration 2/6 ---
+Action: EXTRACT (full document in cache)
+  Parse error in extraction, requesting immediate fix...
+  Schema validation: PASSED
+  Extracted: Decentralized Multi-Quadruped Cooperative Object Transport System
+  Tool: PATENTABILITY_CHECK (3-facet rubric)
+  Classification: Potential Invention (score: 6/6)
+    Facet A (Nature of the Described Innovation): 2/2 — The document clearly describes a robotic system/machine consisting of multiple q
+    Facet B (Conceptual Foundation or Possible Judicial Exception): 2/2 — The system has a fully specified mechanism with reproducible architecture: two-l
+    Facet C (Practical Application or Technical Integration): 2/2 — The system demonstrates measurable improvements with specific metrics: 80% reduc
+  Justification: The work presents a concrete robotic system with fully specified control architecture, demonstrable technical improvements over baselines, and validated real-world implementation.
+Action: VALIDATE
+  Self-reported confidence: 0.90
+  Suggestions empty: False
+  Valid: True
+  Tool: JUDGE_BOT (independent confidence calibration)
+  Judge confidence: 1.00
+    completeness: 2 — All required fields are filled with detailed and substantive content, including five distinct key technical features and citations for each field.
+    specificity: 2 — The technical description is concrete and mentions specific techniques, algorithms, and architectures, and the inventor keywords are precise domain terms.
+    internal_consistency: 2 — The solution approach addresses the problem statement, the key technical features align with the technical description, and the statutory category matches the described invention.
+    citation_quality: 2 — The citations appear to be direct quotes with section references, reading like real paper excerpts.
+    patent_readiness: 2 — The invention name is concise and descriptive, and the description contains enough technical specifics for effective prior art search.
+  Assessment: This invention extraction is of exceptionally high quality, demonstrating thoroughness, specificity, and consistency throughout. It is well-suited for patent searching and evaluation.
+  Calibrated confidence: 0.90 (self=0.90, judge=1.00, strategy=minimum)
+  STOP: confidence>=0.85
+
+============================================================
+EXTRACTION COMPLETE
+Invention: Decentralized Multi-Quadruped Cooperative Object Transport System
+Citations: {'invention_name': ['We propose decPLM (Decentralized Pinch-Lift-Move), a hierarchical control framework'], 'technical_description': ['a hierarchical control framework with a constellation-based reward that enables quadruped-arm teams to learn robust pinch-lift-move behaviors without communication/centralization', 'The system uses a constellation-based reward formulation to enforce rigid-like contact behavior'], 'problem_statement': ['many real-world objects-boxes, furniture, construction materials, logs, irregular containers-cannot be easily grasped or rigidly attached', 'Existing decentralized approaches succeed mainly when robots are rigidly coupled to objects'], 'solution_approach': ['We employ a hierarchical policy architecture that separates base locomotion from arm control, and propose a constellation reward formulation that unifies position and orientation tracking', 'The key insight is encouraging robots to behave as if rigidly connected to the object through careful reward design'], 'key_technical_features': ['(1) a constellation reward unifying position and orientation alignment to enforce rigid-like contact', 'Hierarchical Policy Architecture: We employ a two-level hierarchy that separates locomotion from manipulation control', 'scaling to arbitrary team sizes without retraining'], 'domain_classification': ['Multi-Robot Systems, Cooperative Object Transport, Reinforcement Learning, Decentralized Control'], 'statutory_category': ['teams of N-quadruped robots with arm that must pinch, lift, and move ungraspable objects'], 'inventor_keywords': ['Multi-Robot Systems, Cooperative Object Transport', 'Decentralized Control']}
+Patentability: Potential Invention (6/6)
+Iterations: 2
+Stop reason: confidence>=0.85
+Final confidence: 0.90
+Conversation turns: 9
+  Agent logs saved: logs/react_agent_cached_20260209_211541.json
+
+============================================================
+STAGE 2: GENERATE SEARCH QUERIES
+============================================================
+  Generated 10 queries:
+    - multi-robot cooperative object transport manipulation
+    - decentralized quadruped robot coordination control
+    - legged robot collaborative lifting carrying system
+    - hierarchical control architecture multi-robot manipulation
+    - contact-based cooperative transport without communication
+    - constellation reward formation multi-agent coordination
+    - pinch grasp cooperative manipulation multiple robots
+    - scalable multi-robot object handling decentralized
+    - rigid body coordination implicit synchronization robots
+    - quadruped manipulator arm cooperative transport system
+
+============================================================
+STAGE 3: PATENT SEARCH (SerpAPI, parallel)
+============================================================
+  [SEARCH] multi-robot cooperative object transport manipulation
+  [SEARCH] decentralized quadruped robot coordination control
+  [SEARCH] legged robot collaborative lifting carrying system
+  [SEARCH] hierarchical control architecture multi-robot manipulation
+  [SEARCH] contact-based cooperative transport without communication
+  [DONE] decentralized quadruped robot coordination control -> 5 results
+  [SEARCH] constellation reward formation multi-agent coordination
+  [DONE] multi-robot cooperative object transport manipulation -> 5 results
+  [SEARCH] pinch grasp cooperative manipulation multiple robots
+  [DONE] hierarchical control architecture multi-robot manipulation -> 5 results
+  [SEARCH] scalable multi-robot object handling decentralized
+  [DONE] constellation reward formation multi-agent coordination -> 5 results
+  [SEARCH] rigid body coordination implicit synchronization robots
+  [DONE] scalable multi-robot object handling decentralized -> 5 results
+  [SEARCH] quadruped manipulator arm cooperative transport system
+  [DONE] pinch grasp cooperative manipulation multiple robots -> 5 results
+  [DONE] rigid body coordination implicit synchronization robots -> 5 results
+  [DONE] contact-based cooperative transport without communication -> 5 results
+  [DONE] quadruped manipulator arm cooperative transport system -> 5 results
+  [DONE] legged robot collaborative lifting carrying system -> 5 results
+  Merging results for: 'multi-robot cooperative object transport manipulation'
+  Merging results for: 'decentralized quadruped robot coordination control'
+  Merging results for: 'legged robot collaborative lifting carrying system'
+  Merging results for: 'hierarchical control architecture multi-robot manipulation'
+  Merging results for: 'contact-based cooperative transport without communication'
+  Merging results for: 'constellation reward formation multi-agent coordination'
+  Merging results for: 'pinch grasp cooperative manipulation multiple robots'
+  Merging results for: 'scalable multi-robot object handling decentralized'
+  Merging results for: 'rigid body coordination implicit synchronization robots'
+  Merging results for: 'quadruped manipulator arm cooperative transport system'
+  Total unique patents: 50
+
+============================================================
+STAGE 4: FETCH PATENT DETAILS
+============================================================
+  Using cached: US9927815B2
+  Using cached: CN111421546B
+  Using cached: US11131998B2
+  Using cached: US10061325B2
+  Using cached: TWI631062B
+  Using cached: CN109249395A
+  Using cached: US20210331754A1
+  Using cached: US20210331317A1
+  Using cached: US11073842B1
+  Using cached: US20210107150A1
+  Got details for 10 patents
+
+============================================================
+STAGE 5: PATENT ANALYSIS (Opus)
+============================================================
+  Analyzed 5 patents:
+    US9927815B2: relevant (0.7)
+    CN111421546B: related (0.4)
+    US11131998B2: related (0.3)
+    US10061325B2: related (0.5)
+    TWI631062B: related (0.2)
+
+============================================================
+STAGE 6: FINAL REPORT
+============================================================
+  Summary:
+    Patents found: 10
+    Blocking: 0
+    Relevant: 1
+    Related: 4
+
+Report saved: s3://patent-pdf-input-786827631714/results/Multi-Quadruped Cooperative Object Transport: Learning Decentralized Pinch-Lift-Move_report.json
+
+============================================================
+PIPELINE COMPLETE
+============================================================
+============================================================
+Running: input/OSU-22-05_publication.pdf
+============================================================
+/home/ec2-user/.local/lib/python3.9/site-packages/boto3/compat.py:89: PythonDeprecationWarning: Boto3 will no longer support Python 3.9 starting April 29, 2026. To continue receiving service updates, bug fixes, and security updates please upgrade to Python 3.10 or later. More information can be found here: https://aws.amazon.com/blogs/developer/python-support-policy-updates-for-aws-sdks-and-tools/
+  warnings.warn(warning, PythonDeprecationWarning)
+
+############################################################
+PATENT PRIOR ART SEARCH PIPELINE (Prompt-Cached)
+############################################################
+Input: s3://patent-pdf-input-786827631714/input/OSU-22-05_publication.pdf
+Models: Sonnet (agent w/ caching), Opus (analysis)
+  Starting Textract Layout extraction (section-wise)...
+  Extracted 2 sections
+
+============================================================
+STAGE 1: INVENTION EXTRACTION (ReAct Agent + Prompt Caching)
+============================================================
+
+============================================================
+INVENTION EXTRACTION AGENT (ReAct + Prompt Caching)
+============================================================
+Sections: 2 | Total chars: 10753
+Model: us.anthropic.claude-opus-4-20250514-v1:0
+Confidence threshold: 0.85
+Section-wise document passed as cached system prefix
+
+--- Iteration 1/6 ---
+Action: EXTRACT (full document in cache)
+  Parse error in extraction, requesting immediate fix...
+  Schema validation: PASSED
+  Extracted: Magneto-acoustic RF Signal Processing Devices
+  Tool: PATENTABILITY_CHECK (3-facet rubric)
+  Classification: Potential Invention (score: 6/6)
+    Facet A (Nature of the Described Innovation): 2/2 — The document clearly describes two specific devices/apparatuses: a tunable HBAR 
+    Facet B (Conceptual Foundation or Possible Judicial Exception): 2/2 — The document provides detailed fabrication processes, specific material composit
+    Facet C (Practical Application or Technical Integration): 2/2 — The document provides specific quantitative measurements of device performance, 
+  Justification: The document describes concrete devices with specific fabrication methods and quantitative performance metrics, demonstrating both technical implementation and measurable improvements over fixed-frequency filters.
+Action: VALIDATE
+  Self-reported confidence: 0.88
+  Suggestions empty: False
+  Valid: True
+  Tool: JUDGE_BOT (independent confidence calibration)
+  Judge confidence: 1.00
+    completeness: 2 — All required fields are filled with substantive content, including five distinct key technical features and citations for each field.
+    specificity: 2 — The technical description is concrete, mentioning specific techniques and architectures, and the inventor keywords are precise domain terms.
+    internal_consistency: 2 — The solution approach addresses the problem statement, key technical features align with the technical description, and the statutory category matches the described invention.
+    citation_quality: 2 — The citations appear to be direct quotes with section IDs, reading like real paper excerpts, and are specific to each field.
+    patent_readiness: 2 — The invention name is concise and descriptive, and the description contains enough technical specifics for effective prior art search.
+  Assessment: This invention extraction is of exceptionally high quality, with thorough and specific content, excellent internal consistency, and strong citation quality, making it well-suited for patent searching and analysis.
+  Calibrated confidence: 0.88 (self=0.88, judge=1.00, strategy=minimum)
+  STOP: confidence>=0.85
+
+============================================================
+EXTRACTION COMPLETE
+Invention: Magneto-acoustic RF Signal Processing Devices
+Citations: {'invention_name': ['RF Signal Processing with Magneto-acoustic Devices'], 'technical_description': ['We present advancements in novel rf signal processing techniques which combine the benefits of high-Q, high-linearity, and large dynamic range of acoustic wave devices with the tunability and nonlinear functionality of spin wave devices', 'The design and implementation of two such magneto-acoustic devices, a tunable high-overtone bulk acoustic resonator (HBAR) and a rf signal correlator are discussed'], 'problem_statement': ['Tunability enables the utilization of fewer filters to cover the frequency spectrum of a wireless application', 'Acoustic filters in modern devices operate at a fixed frequency or, at best, can be trimmed only over a very small range of frequencies', 'The receiver must correlate the incoming signal with its assigned code to determine whether it is the intended recipient, a process that is performed in a digital baseband processor after demodulation of the carrier'], 'solution_approach': ['The interactions between acoustic waves and spin waves in magneto-elastic materials provide mechanisms to implement a variety of signal processing functions', 'The HBAR mode frequencies are seen to be shifted by more than ±10% of the mode spacing (free spectral range of 9.1 MHz) with less than 10% loss in amplitude'], 'key_technical_features': ['an Al/GaN/NbN acoustic transducer, having high electromechanical coupling, is first fabricated on a growth-compatible substrate (SiC) and subsequently etch released and transferred to a Cu/YIG substrate', 'The HBAR mode frequencies are seen to be shifted by more than ±10% of the mode spacing', 'The correlator achieved good results with binary codes up to 16 bits'], 'domain_classification': ['novel rf signal processing techniques', 'Magnetoacoustic, magnetoelastic, microwave magnetics, spin waves'], 'statutory_category': ['The resulting Al/GaN/Cu/YIG HBAR implements a magnetic-field tunable filter', 'two such magneto-acoustic devices, a tunable high-overtone bulk acoustic resonator (HBAR) and a rf signal correlator'], 'inventor_keywords': ['Index Terms-Magnetoacoustic, magnetoelastic, microwave magnetics, spin waves']}
+Patentability: Potential Invention (6/6)
+Iterations: 1
+Stop reason: confidence>=0.85
+Final confidence: 0.88
+Conversation turns: 8
+  Agent logs saved: logs/react_agent_cached_20260209_211929.json
+
+============================================================
+STAGE 2: GENERATE SEARCH QUERIES
+============================================================
+  Generated 10 queries:
+    - magneto-elastic coupling acoustic wave resonator tunable
+    - yttrium iron garnet YIG acoustic transducer
+    - spin wave acoustic wave parametric pumping
+    - tunable HBAR high-overtone bulk acoustic resonator
+    - magnetostrictive acoustic filter frequency tuning magnetic field
+    - GaN piezoelectric transducer YIG substrate integration
+    - magnon phonon coupling RF signal processing
+    - surface acoustic wave spin wave interaction
+    - tunable acoustic resonator ferromagnetic substrate wireless
+    - CDMA correlator acoustic wave magneto-elastic device
+
+============================================================
+STAGE 3: PATENT SEARCH (SerpAPI, parallel)
+============================================================
+  [SEARCH] magneto-elastic coupling acoustic wave resonator tunable
+  [SEARCH] yttrium iron garnet YIG acoustic transducer
+  [SEARCH] spin wave acoustic wave parametric pumping
+  [SEARCH] tunable HBAR high-overtone bulk acoustic resonator
+  [SEARCH] magnetostrictive acoustic filter frequency tuning magnetic field
+  [DONE] magnetostrictive acoustic filter frequency tuning magnetic field -> 5 results
+  [SEARCH] GaN piezoelectric transducer YIG substrate integration
+  [DONE] magneto-elastic coupling acoustic wave resonator tunable -> 5 results
+  [SEARCH] magnon phonon coupling RF signal processing
+  [DONE] yttrium iron garnet YIG acoustic transducer -> 5 results
+  [SEARCH] surface acoustic wave spin wave interaction
+  [DONE] tunable HBAR high-overtone bulk acoustic resonator -> 4 results
+  [SEARCH] tunable acoustic resonator ferromagnetic substrate wireless
+  [DONE] spin wave acoustic wave parametric pumping -> 5 results
+  [SEARCH] CDMA correlator acoustic wave magneto-elastic device
+  [DONE] GaN piezoelectric transducer YIG substrate integration -> 5 results
+  [DONE] magnon phonon coupling RF signal processing -> 5 results
+  [DONE] surface acoustic wave spin wave interaction -> 5 results
+  [DONE] tunable acoustic resonator ferromagnetic substrate wireless -> 5 results
+  [DONE] CDMA correlator acoustic wave magneto-elastic device -> 5 results
+  Merging results for: 'magneto-elastic coupling acoustic wave resonator tunable'
+  Merging results for: 'yttrium iron garnet YIG acoustic transducer'
+  Merging results for: 'spin wave acoustic wave parametric pumping'
+  Merging results for: 'tunable HBAR high-overtone bulk acoustic resonator'
+  Merging results for: 'magnetostrictive acoustic filter frequency tuning magnetic field'
+  Merging results for: 'GaN piezoelectric transducer YIG substrate integration'
+  Merging results for: 'magnon phonon coupling RF signal processing'
+  Merging results for: 'surface acoustic wave spin wave interaction'
+  Merging results for: 'tunable acoustic resonator ferromagnetic substrate wireless'
+  Merging results for: 'CDMA correlator acoustic wave magneto-elastic device'
+  Total unique patents: 48
+
+============================================================
+STAGE 4: FETCH PATENT DETAILS
+============================================================
+  Using cached: US10601400B1
+  Using cached: US20190188471A1
+  Using cached: US10260969B1
+  Using cached: US10033078B2
+  Using cached: US20210242606A1
+  Using cached: US3292109A
+  Using cached: JPH0265308A
+  Using cached: RU2617143C1
+  Using cached: US11070288B1
+  Using cached: US9056203B2
+  Got details for 10 patents
+
+============================================================
+STAGE 5: PATENT ANALYSIS (Opus)
+============================================================
+  Analyzed 5 patents:
+    US10601400B1: blocking (0.85)
+    US20190188471A1: related (0.05)
+    US10260969B1: relevant (0.75)
+    US10033078B2: blocking (0.9)
+    US20210242606A1: relevant (0.7)
+
+============================================================
+STAGE 6: FINAL REPORT
+============================================================
+  Summary:
+    Patents found: 10
+    Blocking: 2
+    Relevant: 2
+    Related: 1
+
+Report saved: s3://patent-pdf-input-786827631714/results/OSU-22-05_publication_report.json
+
+============================================================
+PIPELINE COMPLETE
+============================================================
+============================================================
+Running: input/OSU-23-14_publication.pdf
+============================================================
+/home/ec2-user/.local/lib/python3.9/site-packages/boto3/compat.py:89: PythonDeprecationWarning: Boto3 will no longer support Python 3.9 starting April 29, 2026. To continue receiving service updates, bug fixes, and security updates please upgrade to Python 3.10 or later. More information can be found here: https://aws.amazon.com/blogs/developer/python-support-policy-updates-for-aws-sdks-and-tools/
+  warnings.warn(warning, PythonDeprecationWarning)
+
+############################################################
+PATENT PRIOR ART SEARCH PIPELINE (Prompt-Cached)
+############################################################
+Input: s3://patent-pdf-input-786827631714/input/OSU-23-14_publication.pdf
+Models: Sonnet (agent w/ caching), Opus (analysis)
+  Starting Textract Layout extraction (section-wise)...
+  Extracted 7 sections
+
+============================================================
+STAGE 1: INVENTION EXTRACTION (ReAct Agent + Prompt Caching)
+============================================================
+
+============================================================
+INVENTION EXTRACTION AGENT (ReAct + Prompt Caching)
+============================================================
+Sections: 7 | Total chars: 57106
+Model: us.anthropic.claude-opus-4-20250514-v1:0
+Confidence threshold: 0.85
+Section-wise document passed as cached system prefix
+
+--- Iteration 1/6 ---
+Action: EXTRACT (full document in cache)
+  Parse error in extraction, requesting immediate fix...
+  Schema validation: PASSED
+  Extracted: Magnetorheological Fluid Clutch with Electropermanent Magnet Array
+  Tool: PATENTABILITY_CHECK (3-facet rubric)
+  Patentability check: parse error, skipping
+Action: VALIDATE
+  Self-reported confidence: 0.88
+  Suggestions empty: False
+  Valid: True
+  Tool: JUDGE_BOT (independent confidence calibration)
+  Judge confidence: 1.00
+    completeness: 2 — All required fields are filled with detailed and substantive content, including key technical features and citations.
+    specificity: 2 — The technical description and inventor keywords use precise technical language and domain-specific terms, such as 'magnetorheological fluid' and 'electropermanent magnets'.
+    internal_consistency: 2 — The solution approach directly addresses the problem statement, and the key technical features align with the technical description, demonstrating a coherent and aligned narrative.
+    citation_quality: 2 — The citations appear to be direct quotes with section references, reading like real paper excerpts and providing credible support for the invention.
+    patent_readiness: 2 — The invention name is concise and descriptive, and the description contains enough technical specifics for effective prior art search, making it patent-ready.
+  Assessment: This invention extraction is of exceptionally high quality, demonstrating thoroughness, precision, and coherence throughout. It is well-suited for patent searching and evaluation.
+  Calibrated confidence: 0.88 (self=0.88, judge=1.00, strategy=minimum)
+  STOP: confidence>=0.85
+
+============================================================
+EXTRACTION COMPLETE
+Invention: Magnetorheological Fluid Clutch with Electropermanent Magnet Array
+Citations: {'invention_name': ['we propose and demonstrate an MRF-filled clutch surrounded by an EPM array (abbreviated here as MEC)'], 'technical_description': ['The device consists of interdigitated steel fins filled with MRF, surrounded by six EPMs that can be individually controlled', 'achieve torque transmission between 0.16 and 0.96 N.m'], 'problem_statement': ['One significant drawback of MRF devices utilizing conventional electromagnets is substantial power consumption-continuous use of relatively large currents is required to maintain the magnetic fields'], 'solution_approach': ['EPMs are assemblies of both an electromagnet with a magnetic core (usually AlNiCo) and a hard permanent magnet nearby (usually NdFeB)', 'Toggling the magnetization of the AlNiCo still requires power, but it can be done on the order of milliseconds and then holding in a latched state'], 'key_technical_features': ['rapid response times (≈5-20 ms)', 'low-power consumption (1.25 mWh)', 'can transmit between 0.16 and 0.96 N.m of torque'], 'domain_classification': ['In robotics, there is widespread interest in expanding physical cooperation between people and robots'], 'statutory_category': ['A MRF clutch that uses a single permanent magnet in conjunction with an electromagnet'], 'inventor_keywords': ['magnetorheological fluid (MRF)', 'electropermanent magnets (EPMs)', 'MRF-based clutch mechanisms']}
+Iterations: 1
+Stop reason: confidence>=0.85
+Final confidence: 0.88
+Conversation turns: 8
+  Agent logs saved: logs/react_agent_cached_20260209_212310.json
+
+============================================================
+STAGE 2: GENERATE SEARCH QUERIES
+============================================================
+  Generated 10 queries:
+    - magnetorheological fluid clutch electropermanent magnet control
+    - MRF clutch low power latching magnet
+    - electropermanent magnet array magnetorheological fluid transmission
+    - magnetorheological clutch pulsed magnetic field switching
+    - interdigitated fins magnetorheological fluid torque transmission
+    - bistable magnet magnetorheological fluid clutch device
+    - permanent magnet switchable magnetorheological fluid actuator
+    - low power magnetorheological clutch variable torque
+    - electropermanent magnet actuator rheological fluid control
+    - latching magnetic field magnetorheological fluid transmission
+
+============================================================
+STAGE 3: PATENT SEARCH (SerpAPI, parallel)
+============================================================
+  [SEARCH] magnetorheological fluid clutch electropermanent magnet control
+  [SEARCH] MRF clutch low power latching magnet
+  [SEARCH] electropermanent magnet array magnetorheological fluid transmission
+  [SEARCH] magnetorheological clutch pulsed magnetic field switching
+  [SEARCH] interdigitated fins magnetorheological fluid torque transmission
+  [DONE] MRF clutch low power latching magnet -> 5 results
+  [SEARCH] bistable magnet magnetorheological fluid clutch device
+  [DONE] electropermanent magnet array magnetorheological fluid transmission -> 5 results
+  [SEARCH] permanent magnet switchable magnetorheological fluid actuator
+  [DONE] magnetorheological fluid clutch electropermanent magnet control -> 5 results
+  [SEARCH] low power magnetorheological clutch variable torque
+  [DONE] interdigitated fins magnetorheological fluid torque transmission -> 5 results
+  [SEARCH] electropermanent magnet actuator rheological fluid control
+  [DONE] permanent magnet switchable magnetorheological fluid actuator -> 5 results
+  [SEARCH] latching magnetic field magnetorheological fluid transmission
+  [DONE] electropermanent magnet actuator rheological fluid control -> 5 results
+  [DONE] bistable magnet magnetorheological fluid clutch device -> 5 results
+  [DONE] latching magnetic field magnetorheological fluid transmission -> 5 results
+  [DONE] low power magnetorheological clutch variable torque -> 5 results
+  [DONE] magnetorheological clutch pulsed magnetic field switching -> 5 results
+  Merging results for: 'magnetorheological fluid clutch electropermanent magnet control'
+  Merging results for: 'MRF clutch low power latching magnet'
+  Merging results for: 'electropermanent magnet array magnetorheological fluid transmission'
+  Merging results for: 'magnetorheological clutch pulsed magnetic field switching'
+  Merging results for: 'interdigitated fins magnetorheological fluid torque transmission'
+  Merging results for: 'bistable magnet magnetorheological fluid clutch device'
+  Merging results for: 'permanent magnet switchable magnetorheological fluid actuator'
+  Merging results for: 'low power magnetorheological clutch variable torque'
+  Merging results for: 'electropermanent magnet actuator rheological fluid control'
+  Merging results for: 'latching magnetic field magnetorheological fluid transmission'
+  Total unique patents: 43
+
+============================================================
+STAGE 4: FETCH PATENT DETAILS
+============================================================
+  Using cached: US20210084999A1
+  Using cached: US11048344B1
+  Using cached: CN107613863B
+  Using cached: US20190278102A1
+  Using cached: US7963818B2
+  Using cached: US10948031B2
+  Using cached: US10481631B2
+  Using cached: US10429959B2
+  Using cached: CN107710106B
+  Using cached: US8372016B2
+  Got details for 10 patents
+
+============================================================
+STAGE 5: PATENT ANALYSIS (Opus)
+============================================================
+  Analyzed 5 patents:
+    US20210084999A1: related (0.1)
+    US11048344B1: blocking (0.95)
+    CN107613863B: related (0.05)
+    US20190278102A1: related (0.15)
+    US7963818B2: related (0.25)
+
+============================================================
+STAGE 6: FINAL REPORT
+============================================================
+  Summary:
+    Patents found: 10
+    Blocking: 1
+    Relevant: 0
+    Related: 4
+
+Report saved: s3://patent-pdf-input-786827631714/results/OSU-23-14_publication_report.json
+
+============================================================
+PIPELINE COMPLETE
+============================================================
+============================================================
+Running: input/OSU-23-35_publication.pdf
+============================================================
+/home/ec2-user/.local/lib/python3.9/site-packages/boto3/compat.py:89: PythonDeprecationWarning: Boto3 will no longer support Python 3.9 starting April 29, 2026. To continue receiving service updates, bug fixes, and security updates please upgrade to Python 3.10 or later. More information can be found here: https://aws.amazon.com/blogs/developer/python-support-policy-updates-for-aws-sdks-and-tools/
+  warnings.warn(warning, PythonDeprecationWarning)
+
+############################################################
+PATENT PRIOR ART SEARCH PIPELINE (Prompt-Cached)
+############################################################
+Input: s3://patent-pdf-input-786827631714/input/OSU-23-35_publication.pdf
+Models: Sonnet (agent w/ caching), Opus (analysis)
+  Starting Textract Layout extraction (section-wise)...
+  Extracted 3 sections
+
+============================================================
+STAGE 1: INVENTION EXTRACTION (ReAct Agent + Prompt Caching)
+============================================================
+
+============================================================
+INVENTION EXTRACTION AGENT (ReAct + Prompt Caching)
+============================================================
+Sections: 3 | Total chars: 14406
+Model: us.anthropic.claude-opus-4-20250514-v1:0
+Confidence threshold: 0.85
+Section-wise document passed as cached system prefix
+
+--- Iteration 1/6 ---
+Action: EXTRACT (full document in cache)
+  Parse error in extraction, requesting immediate fix...
+  Retry also failed to produce valid JSON, continuing...
+--- Iteration 2/6 ---
+Action: EXTRACT (full document in cache)
+  Parse error in extraction, requesting immediate fix...
+  Schema validation: PASSED
+  Extracted: Hybrid Electrodialysis-Forward Osmosis Nutrient Water Recovery System
+  Tool: PATENTABILITY_CHECK (3-facet rubric)
+  Classification: Potential Invention (score: 6/6)
+    Facet A (Nature of the Described Innovation): 2/2 — The document clearly defines a specific process invention - a two-stage hybrid s
+    Facet B (Conceptual Foundation or Possible Judicial Exception): 2/2 — The document provides a fully specified mechanism with reproducible steps, inclu
+    Facet C (Practical Application or Technical Integration): 2/2 — The invention shows clear measurable improvements with specific quantitative per
+  Justification: This hybrid ED-FO process represents a concrete, implementable system with fully specified mechanisms and demonstrated quantitative improvements in nutrient and water recovery from waste streams.
+Action: VALIDATE
+  Self-reported confidence: 0.92
+  Suggestions empty: False
+  Valid: True
+  Tool: JUDGE_BOT (independent confidence calibration)
+  Judge confidence: 1.00
+    completeness: 2 — All required fields are filled with substantive content, including five distinct key technical features and citations for each field.
+    specificity: 2 — The technical description is concrete, mentioning specific techniques like electrodialysis and forward osmosis, and the inventor keywords are precise domain terms.
+    internal_consistency: 2 — The solution approach addresses the problem statement, the key technical features align with the technical description, and the statutory category matches the described process.
+    citation_quality: 2 — The citations appear to be direct quotes with section references, reading like real paper excerpts.
+    patent_readiness: 2 — The invention name is concise and descriptive, and the description contains enough technical specifics for effective prior art search.
+  Assessment: This invention extraction is of exceptionally high quality, with all dimensions scoring perfectly. The content is comprehensive, specific, consistent, and well-supported by citations, making it highly suitable for patent searching and analysis.
+  Calibrated confidence: 0.92 (self=0.92, judge=1.00, strategy=minimum)
+  STOP: confidence>=0.85
+
+============================================================
+EXTRACTION COMPLETE
+Invention: Hybrid Electrodialysis-Forward Osmosis Nutrient Water Recovery System
+Citations: {'invention_name': ['A novel hybrid electrodialysis-forward osmosis (ED-FO) process designed to recover nutrients and clean water from anaerobic digester effluent [s01]'], 'technical_description': ['In Stage 1, liquid digestate entered an ED cell. By applying an electrical potential to the electrodes, nutrient ions were pulled into a concentrate compartment [s02]', 'In Stage 2, the concentrated nutrient solution with high osmotic pressure circulated on the draw side of the FO membrane [s02]'], 'problem_statement': ['Water shortages in the agriculture sector have been on the rise in recent years, becoming a critical problem in many regions [s02]', 'Liquid digestate contains heavy metals, pathogenic organisms and emerging organic micro-pollutants [s02]'], 'solution_approach': ['The ED treatment demonstrated an impressive nutrient recovery rate: 84% for ammonium, 86% for potassium, 98% for ortho-phosphate, and 97% for nitrate [s01]', 'The nutrient-rich concentrate from the ED process reclaimed up to 74% of clean water [s01]'], 'key_technical_features': ['The hybrid ED-FO process also retained 62-98% of heavy metals and 83% of total organic carbon (TOC) [s01]', 'Up to 98% and 74% nutrients and water were recovered [s01]'], 'domain_classification': ['Sustainable nutrient water recovery by a hybrid electrodialysis (ED) - forward osmosis (FO) process for agricultural application [s01]'], 'statutory_category': ['The objective of the present study was to explore the potential of a novel hybrid ED-FO process [s02]'], 'inventor_keywords': ['hybrid electrodialysis-forward osmosis (ED-FO) process [s01]', 'nutrients and clean water from anaerobic digester effluent [s01]']}
+Patentability: Potential Invention (6/6)
+Iterations: 2
+Stop reason: confidence>=0.85
+Final confidence: 0.92
+Conversation turns: 12
+  Agent logs saved: logs/react_agent_cached_20260209_212746.json
+
+============================================================
+STAGE 2: GENERATE SEARCH QUERIES
+============================================================
+  Generated 10 queries:
+    - electrodialysis forward osmosis hybrid wastewater treatment
+    - nutrient recovery electrodialysis anaerobic digester effluent
+    - forward osmosis draw solution nutrient concentrate
+    - electrodialysis membrane nutrient extraction ammonium phosphate
+    - two-stage membrane process wastewater nutrient recovery
+    - forward osmosis electrodialysis integrated system water reuse
+    - digestate treatment nutrient recovery irrigation water
+    - electrodialysis concentrate draw solution osmosis
+    - heavy metal rejection nutrient recovery membrane process
+    - anaerobic digester effluent electrodialysis forward osmosis
+
+============================================================
+STAGE 3: PATENT SEARCH (SerpAPI, parallel)
+============================================================
+  [SEARCH] electrodialysis forward osmosis hybrid wastewater treatment
+  [SEARCH] nutrient recovery electrodialysis anaerobic digester effluent
+  [SEARCH] forward osmosis draw solution nutrient concentrate
+  [SEARCH] electrodialysis membrane nutrient extraction ammonium phosphate
+  [SEARCH] two-stage membrane process wastewater nutrient recovery
+  [DONE] electrodialysis forward osmosis hybrid wastewater treatment -> 5 results
+  [SEARCH] forward osmosis electrodialysis integrated system water reuse
+  [DONE] forward osmosis draw solution nutrient concentrate -> 5 results
+  [SEARCH] digestate treatment nutrient recovery irrigation water
+  [DONE] two-stage membrane process wastewater nutrient recovery -> 5 results
+  [SEARCH] electrodialysis concentrate draw solution osmosis
+  [DONE] nutrient recovery electrodialysis anaerobic digester effluent -> 5 results
+  [SEARCH] heavy metal rejection nutrient recovery membrane process
+  [DONE] electrodialysis membrane nutrient extraction ammonium phosphate -> 5 results
+  [SEARCH] anaerobic digester effluent electrodialysis forward osmosis
+  [DONE] electrodialysis concentrate draw solution osmosis -> 5 results
+  [DONE] forward osmosis electrodialysis integrated system water reuse -> 5 results
+  [DONE] anaerobic digester effluent electrodialysis forward osmosis -> 5 results
+  [DONE] heavy metal rejection nutrient recovery membrane process -> 5 results
+  [DONE] digestate treatment nutrient recovery irrigation water -> 5 results
+  Merging results for: 'electrodialysis forward osmosis hybrid wastewater treatment'
+  Merging results for: 'nutrient recovery electrodialysis anaerobic digester effluent'
+  Merging results for: 'forward osmosis draw solution nutrient concentrate'
+  Merging results for: 'electrodialysis membrane nutrient extraction ammonium phosphate'
+  Merging results for: 'two-stage membrane process wastewater nutrient recovery'
+  Merging results for: 'forward osmosis electrodialysis integrated system water reuse'
+  Merging results for: 'digestate treatment nutrient recovery irrigation water'
+  Merging results for: 'electrodialysis concentrate draw solution osmosis'
+  Merging results for: 'heavy metal rejection nutrient recovery membrane process'
+  Merging results for: 'anaerobic digester effluent electrodialysis forward osmosis'
+  Total unique patents: 49
+
+============================================================
+STAGE 4: FETCH PATENT DETAILS
+============================================================
+  Using cached: CA2896022A1
+  Using cached: AU2007228330B2
+  Using cached: US20150360983A1
+  Using cached: EP3496843B1
+  Using cached: KR20170030129A
+  Using cached: CN104911216B
+  Using cached: WO2014098874A1
+  Using cached: US8623213B2
+  Using cached: US9567611B2
+  Using cached: EP3392208B1
+  Got details for 10 patents
+
+============================================================
+STAGE 5: PATENT ANALYSIS (Opus)
+============================================================
+  Analyzed 5 patents:
+    CA2896022A1: related (0.4)
+    AU2007228330B2: related (0.5)
+    US20150360983A1: relevant (0.7)
+    EP3496843B1: relevant (0.75)
+    KR20170030129A: related (0.6)
+
+============================================================
+STAGE 6: FINAL REPORT
+============================================================
+  Summary:
+    Patents found: 10
+    Blocking: 0
+    Relevant: 2
+    Related: 3
+
+Report saved: s3://patent-pdf-input-786827631714/results/OSU-23-35_publication_report.json
+
+============================================================
+PIPELINE COMPLETE
+============================================================
+============================================================
+Running: input/OSU-24-36_publication.pdf
+============================================================
+/home/ec2-user/.local/lib/python3.9/site-packages/boto3/compat.py:89: PythonDeprecationWarning: Boto3 will no longer support Python 3.9 starting April 29, 2026. To continue receiving service updates, bug fixes, and security updates please upgrade to Python 3.10 or later. More information can be found here: https://aws.amazon.com/blogs/developer/python-support-policy-updates-for-aws-sdks-and-tools/
+  warnings.warn(warning, PythonDeprecationWarning)
+
+############################################################
+PATENT PRIOR ART SEARCH PIPELINE (Prompt-Cached)
+############################################################
+Input: s3://patent-pdf-input-786827631714/input/OSU-24-36_publication.pdf
+Models: Sonnet (agent w/ caching), Opus (analysis)
+  Starting Textract Layout extraction (section-wise)...
+  Extracted 6 sections
+
+============================================================
+STAGE 1: INVENTION EXTRACTION (ReAct Agent + Prompt Caching)
+============================================================
+
+============================================================
+INVENTION EXTRACTION AGENT (ReAct + Prompt Caching)
+============================================================
+Sections: 6 | Total chars: 31351
+Model: us.anthropic.claude-opus-4-20250514-v1:0
+Confidence threshold: 0.85
+Section-wise document passed as cached system prefix
+
+--- Iteration 1/6 ---
+Action: EXTRACT (full document in cache)
+  Parse error in extraction, requesting immediate fix...
+  Retry also failed to produce valid JSON, continuing...
+--- Iteration 2/6 ---
+Action: EXTRACT (full document in cache)
+  Parse error in extraction, requesting immediate fix...
+  Schema validation: PASSED
+  Extracted: Lithography-Assisted Plasma-Jet Printing for Submicron Metal Patterning
+  Tool: PATENTABILITY_CHECK (3-facet rubric)
+  Patentability check: parse error, skipping
+Action: VALIDATE
+  Self-reported confidence: 0.90
+  Suggestions empty: False
+  Valid: True
+  Tool: JUDGE_BOT (independent confidence calibration)
+  Judge confidence: 1.00
+    completeness: 2 — All required fields are filled with detailed and substantive content, including five distinct key technical features and citations for each field.
+    specificity: 2 — The technical description is concrete and mentions specific techniques, such as plasma-jet printing and lithography-assisted plasma jet deposition, and the inventor keywords are precise domain terms.
+    internal_consistency: 2 — The solution approach effectively addresses the problem statement, and the key technical features align with the technical description, demonstrating a coherent and aligned narrative.
+    citation_quality: 2 — The citations appear to be direct quotes with section references, reading like real paper excerpts, and are specific to each field.
+    patent_readiness: 2 — The invention name is concise and descriptive, and the description contains enough technical specifics for effective prior art search, making it patent-ready.
+  Assessment: This invention extraction is of exceptionally high quality, demonstrating thoroughness, specificity, and consistency throughout. It is well-suited for patent searching and evaluation.
+  Calibrated confidence: 0.90 (self=0.90, judge=1.00, strategy=minimum)
+  STOP: confidence>=0.85
+
+============================================================
+EXTRACTION COMPLETE
+Invention: Lithography-Assisted Plasma-Jet Printing for Submicron Metal Patterning
+Citations: {'invention_name': ['we demonstrate single-step selective area sub-µm metal patterning on substrates using lithography-assisted plasma jet deposition'], 'technical_description': ['plasma-jet printing (PJP), a technique capable of directly depositing sintered metal traces in a single step, without the need for any postannealing process', 'fine (~500 nm) metallic features were patterned on rigid and flexible substrates'], 'problem_statement': ['PVD is a blanket deposition process, a full layer of metal must be deposited over the entire substrate, and a large portion of the metal outside the desired pattern must be removed via a lift-off procedure', 'These additional steps often demand specialized equipment or high temperatures, which may be incompatible with many substrates'], 'solution_approach': ['The ink directly interacts with the electrons, UV, ions, metastables, and active neutrals in the generated plasma, which facilitates the self-sintering of the deposited material', 'we employed this single-step method to achieve the patterning of multiple metals within a single photoresist patterning and lift-off process'], 'key_technical_features': ['squares with sizes of 100 µm, 50 µm, 10 µm, 1 µm, 800 nm, and 500 nm were defined on SOI', 'The conductivity of the deposited film can be further improved by turning the ink flow off and passing the plasma over the deposited material'], 'domain_classification': ['printed and flexible hybrid electronics have seen exponential growth', 'potential applications, such as metamaterials, semiconductor processing, and micromechanical systems (MEMS)'], 'statutory_category': ['Flow diagram of the fabrication process. A resist is first coated onto diced SOI chips. The resist is patterned using e-beam lithography or photolithography'], 'inventor_keywords': ['plasma-jet printing (PJP)', 'lithography-assisted plasma jet deposition', 'selective area deposition of multiple metals']}
+Iterations: 2
+Stop reason: confidence>=0.85
+Final confidence: 0.90
+Conversation turns: 12
+  Agent logs saved: logs/react_agent_cached_20260209_213258.json
+
+============================================================
+STAGE 2: GENERATE SEARCH QUERIES
+============================================================
+  Generated 10 queries:
+    - plasma jet printing metal nanoparticle deposition
+    - atmospheric pressure plasma sintering metal nanoparticles
+    - lithography selective area metal pattern deposition
+    - submicron metal feature printing without annealing
+    - plasma-assisted direct write metal patterning
+    - self-sintering metal nanoparticle atmospheric plasma
+    - multi-metal selective deposition single lithography cycle
+    - plasma jet additive manufacturing submicron resolution
+    - lift-off free metal patterning plasma deposition
+    - atmospheric plasma metal printing flexible substrate
+
+============================================================
+STAGE 3: PATENT SEARCH (SerpAPI, parallel)
+============================================================
+  [SEARCH] plasma jet printing metal nanoparticle deposition
+  [SEARCH] atmospheric pressure plasma sintering metal nanoparticles
+  [SEARCH] lithography selective area metal pattern deposition
+  [SEARCH] submicron metal feature printing without annealing
+  [SEARCH] plasma-assisted direct write metal patterning
+  [DONE] submicron metal feature printing without annealing -> 5 results
+  [SEARCH] self-sintering metal nanoparticle atmospheric plasma
+  [DONE] plasma jet printing metal nanoparticle deposition -> 5 results
+  [SEARCH] multi-metal selective deposition single lithography cycle
+  [DONE] lithography selective area metal pattern deposition -> 5 results
+  [SEARCH] plasma jet additive manufacturing submicron resolution
+  [DONE] plasma-assisted direct write metal patterning -> 5 results
+  [SEARCH] lift-off free metal patterning plasma deposition
+  [DONE] atmospheric pressure plasma sintering metal nanoparticles -> 5 results
+  [SEARCH] atmospheric plasma metal printing flexible substrate
+  [DONE] self-sintering metal nanoparticle atmospheric plasma -> 5 results
+  [DONE] multi-metal selective deposition single lithography cycle -> 5 results
+  [DONE] plasma jet additive manufacturing submicron resolution -> 5 results
+  [DONE] lift-off free metal patterning plasma deposition -> 5 results
+  [DONE] atmospheric plasma metal printing flexible substrate -> 5 results
+  Merging results for: 'plasma jet printing metal nanoparticle deposition'
+  Merging results for: 'atmospheric pressure plasma sintering metal nanoparticles'
+  Merging results for: 'lithography selective area metal pattern deposition'
+  Merging results for: 'submicron metal feature printing without annealing'
+  Merging results for: 'plasma-assisted direct write metal patterning'
+  Merging results for: 'self-sintering metal nanoparticle atmospheric plasma'
+  Merging results for: 'multi-metal selective deposition single lithography cycle'
+  Merging results for: 'plasma jet additive manufacturing submicron resolution'
+  Merging results for: 'lift-off free metal patterning plasma deposition'
+  Merging results for: 'atmospheric plasma metal printing flexible substrate'
+  Total unique patents: 46
+
+============================================================
+STAGE 4: FETCH PATENT DETAILS
+============================================================
+  Using cached: CN101808827A
+  Using cached: US20210381108A1
+  Using cached: WO2021047761A1
+  Using cached: US20170259501A1
+  Using cached: EP2382063A1
+  Using cached: RU2530070C1
+  Using cached: US10991548B2
+  Using cached: US10116000B1
+  Using cached: US10760162B2
+  Using cached: JP5823404B2
+  Got details for 10 patents
+
+============================================================
+STAGE 5: PATENT ANALYSIS (Opus)
+============================================================
+  Analyzed 5 patents:
+    CN101808827A: related (0.3)
+    US20210381108A1: blocking (0.85)
+    WO2021047761A1: blocking (0.9)
+    US20170259501A1: relevant (0.75)
+    EP2382063A1: related (0.4)
+
+============================================================
+STAGE 6: FINAL REPORT
+============================================================
+  Summary:
+    Patents found: 10
+    Blocking: 2
+    Relevant: 1
+    Related: 2
+
+Report saved: s3://patent-pdf-input-786827631714/results/OSU-24-36_publication_report.json
+
+============================================================
+PIPELINE COMPLETE
+============================================================
+============================================================
+Running: input/OSU-24-37_publication.pdf
+============================================================
+/home/ec2-user/.local/lib/python3.9/site-packages/boto3/compat.py:89: PythonDeprecationWarning: Boto3 will no longer support Python 3.9 starting April 29, 2026. To continue receiving service updates, bug fixes, and security updates please upgrade to Python 3.10 or later. More information can be found here: https://aws.amazon.com/blogs/developer/python-support-policy-updates-for-aws-sdks-and-tools/
+  warnings.warn(warning, PythonDeprecationWarning)
+
+############################################################
+PATENT PRIOR ART SEARCH PIPELINE (Prompt-Cached)
+############################################################
+Input: s3://patent-pdf-input-786827631714/input/OSU-24-37_publication.pdf
+Models: Sonnet (agent w/ caching), Opus (analysis)
+  Starting Textract Layout extraction (section-wise)...
+  Extracted 2 sections
+
+============================================================
+STAGE 1: INVENTION EXTRACTION (ReAct Agent + Prompt Caching)
+============================================================
+
+============================================================
+INVENTION EXTRACTION AGENT (ReAct + Prompt Caching)
+============================================================
+Sections: 2 | Total chars: 54600
+Model: us.anthropic.claude-opus-4-20250514-v1:0
+Confidence threshold: 0.85
+Section-wise document passed as cached system prefix
+
+--- Iteration 1/6 ---
+Action: EXTRACT (full document in cache)
+  Schema validation: PASSED
+  Extracted: RF Signal LOS/NLOS Classification Using Phase Histogram Analysis
+  Tool: PATENTABILITY_CHECK (3-facet rubric)
+  Classification: Potential Invention (score: 6/6)
+    Facet A (Nature of the Described Innovation): 2/2 — The document clearly defines specific algorithms (Algorithm 1 and Algorithm 2) w
+    Facet B (Conceptual Foundation or Possible Judicial Exception): 2/2 — The mechanism is fully specified with reproducible algorithmic steps, mathematic
+    Facet C (Practical Application or Technical Integration): 2/2 — The document provides extensive quantitative performance metrics including F1-sc
+  Justification: The work describes concrete algorithms with fully specified mechanisms for RF signal LOS/NLOS classification, validated through extensive experiments showing measurable improvements over existing methods.
+Action: VALIDATE
+  Self-reported confidence: 0.92
+  Suggestions empty: False
+  Valid: True
+  Tool: JUDGE_BOT (independent confidence calibration)
+  Judge confidence: 1.00
+    completeness: 2 — All required fields are filled with detailed and substantive content, including five distinct key technical features and relevant citations.
+    specificity: 2 — The technical description is concrete and mentions specific techniques, algorithms, and architectures, such as phase histogram analysis, beamforming, and FFT-based peak detection.
+    internal_consistency: 2 — The solution approach effectively addresses the problem statement, and the key technical features align with the technical description, demonstrating a coherent and aligned narrative.
+    citation_quality: 2 — The citations appear to be direct quotes with section references, reading like real paper excerpts, and are relevant to the corresponding fields.
+    patent_readiness: 2 — The invention name is concise and descriptive, and the description contains sufficient technical specifics for effective prior art search.
+  Assessment: This invention extraction is of exceptionally high quality, demonstrating thoroughness, specificity, and coherence throughout. It is well-suited for patent searching and evaluation.
+  Calibrated confidence: 0.92 (self=0.92, judge=1.00, strategy=minimum)
+  STOP: confidence>=0.85
+
+============================================================
+EXTRACTION COMPLETE
+Invention: RF Signal LOS/NLOS Classification Using Phase Histogram Analysis
+Citations: {'invention_name': ['Robust Indoor RF Signal LOS Classification: An Exploit of Modulation and Beamforming [s01]'], 'technical_description': ['This article proposes a novel mechanism that leverages the histogram characteristic of the signal phase in common signal modulation methods like quadrature amplitude modulation and phase shift keying to differentiate between LOS and NLOS conditions [s01]', "Our approach's effectiveness is validated through a series of experiments, demonstrating up to 100% real-time accuracy in LOS/NLOS identifications [s01]"], 'problem_statement': ['A major challenge in developing dependable IPS lies in accurately classifying line-of-sight (LOS) and non-LOS (NLOS) propagation conditions, which heavily influence positioning accuracy [s01]', 'Existing solutions often demand high-computational resources or are constrained by specific assumptions about the environment, limiting their broad applicability [s01]'], 'solution_approach': ['We posit that the phase modulation forms a distinctive pattern in the histogram, serving as a reliable identifier for LOS/NLOS classification [s01]', 'By utilizing the distinct peak at 4 Hz, the processing speed and accuracy of our LOS/NLOS classification are significantly enhanced [s01]'], 'key_technical_features': ['The phase histogram has four cluster-like peaks, equally spaced by 90° [s01]', 'The delay-and-sum beamforming algorithm is a widely used technique for improving the SNR of a received signal in a uniform linear array (ULA) [s01]', 'the proposed algorithm is capable of achieving an update rate over 26 Hz [s01]'], 'domain_classification': ['Index Terms-Beamforming, indoor positioning, line-of-sight (LOS) classification, signal processing [s01]'], 'statutory_category': ['Algorithm 1 Basic LOS/NLOS Classification [s01]', 'Algorithm 2 Optimized LOS/NLOS Classification [s01]'], 'inventor_keywords': ['Index Terms-Beamforming, indoor positioning, line-of-sight (LOS) classification, signal processing [s01]']}
+Patentability: Potential Invention (6/6)
+Iterations: 1
+Stop reason: confidence>=0.85
+Final confidence: 0.92
+Conversation turns: 6
+  Agent logs saved: logs/react_agent_cached_20260209_213607.json
+
+============================================================
+STAGE 2: GENERATE SEARCH QUERIES
+============================================================
+  Generated 10 queries:
+    - phase histogram analysis LOS NLOS classification
+    - beamforming signal propagation line-of-sight detection
+    - QAM PSK modulation phase distribution pattern
+    - indoor positioning LOS NLOS differentiation method
+    - RF signal phase statistics channel condition
+    - FFT periodicity detection wireless propagation classification
+    - real-time LOS NLOS identification beamforming
+    - phase angle histogram wireless channel characterization
+    - delay-and-sum beamforming propagation condition detection
+    - signal phase distribution multipath LOS classification
+
+============================================================
+STAGE 3: PATENT SEARCH (SerpAPI, parallel)
+============================================================
+  [SEARCH] phase histogram analysis LOS NLOS classification
+  [SEARCH] beamforming signal propagation line-of-sight detection
+  [SEARCH] QAM PSK modulation phase distribution pattern
+  [SEARCH] indoor positioning LOS NLOS differentiation method
+  [SEARCH] RF signal phase statistics channel condition
+  [DONE] phase histogram analysis LOS NLOS classification -> 5 results
+  [SEARCH] FFT periodicity detection wireless propagation classification
+  [DONE] beamforming signal propagation line-of-sight detection -> 5 results
+  [SEARCH] real-time LOS NLOS identification beamforming
+  [DONE] RF signal phase statistics channel condition -> 5 results
+  [SEARCH] phase angle histogram wireless channel characterization
+  [DONE] indoor positioning LOS NLOS differentiation method -> 5 results
+  [SEARCH] delay-and-sum beamforming propagation condition detection
+  [DONE] QAM PSK modulation phase distribution pattern -> 5 results
+  [SEARCH] signal phase distribution multipath LOS classification
+  [DONE] FFT periodicity detection wireless propagation classification -> 5 results
+  [DONE] phase angle histogram wireless channel characterization -> 5 results
+  [DONE] delay-and-sum beamforming propagation condition detection -> 5 results
+  [DONE] signal phase distribution multipath LOS classification -> 5 results
+  [DONE] real-time LOS NLOS identification beamforming -> 5 results
+  Merging results for: 'phase histogram analysis LOS NLOS classification'
+  Merging results for: 'beamforming signal propagation line-of-sight detection'
+  Merging results for: 'QAM PSK modulation phase distribution pattern'
+  Merging results for: 'indoor positioning LOS NLOS differentiation method'
+  Merging results for: 'RF signal phase statistics channel condition'
+  Merging results for: 'FFT periodicity detection wireless propagation classification'
+  Merging results for: 'real-time LOS NLOS identification beamforming'
+  Merging results for: 'phase angle histogram wireless channel characterization'
+  Merging results for: 'delay-and-sum beamforming propagation condition detection'
+  Merging results for: 'signal phase distribution multipath LOS classification'
+  Total unique patents: 44
+
+============================================================
+STAGE 4: FETCH PATENT DETAILS
+============================================================
+  Using cached: US20200397365A1
+  Using cached: EP3869223A1
+  Using cached: EP3695783A1
+  Using cached: US20200271749A1
+  Using cached: US20210173045A1
+  Using cached: US8055193B2
+  Using cached: US10989815B2
+  Using cached: EP2758792A1
+  Using cached: AU2014288997B2
+  Using cached: KR100831646B1
+  Got details for 10 patents
+
+============================================================
+STAGE 5: PATENT ANALYSIS (Opus)
+============================================================
+  Analyzed 5 patents:
+    US20200397365A1: related (0.3)
+    EP3869223A1: related (0.5)
+    EP3695783A1: related (0.4)
+    US20200271749A1: related (0.6)
+    US20210173045A1: related (0.35)
+
+============================================================
+STAGE 6: FINAL REPORT
+============================================================
+  Summary:
+    Patents found: 10
+    Blocking: 0
+    Relevant: 0
+    Related: 5
+
+Report saved: s3://patent-pdf-input-786827631714/results/OSU-24-37_publication_report.json
+
+============================================================
+PIPELINE COMPLETE
+============================================================
+============================================================
+Running: input/OSU-24-48_publication.pdf
+============================================================
+/home/ec2-user/.local/lib/python3.9/site-packages/boto3/compat.py:89: PythonDeprecationWarning: Boto3 will no longer support Python 3.9 starting April 29, 2026. To continue receiving service updates, bug fixes, and security updates please upgrade to Python 3.10 or later. More information can be found here: https://aws.amazon.com/blogs/developer/python-support-policy-updates-for-aws-sdks-and-tools/
+  warnings.warn(warning, PythonDeprecationWarning)
+
+############################################################
+PATENT PRIOR ART SEARCH PIPELINE (Prompt-Cached)
+############################################################
+Input: s3://patent-pdf-input-786827631714/input/OSU-24-48_publication.pdf
+Models: Sonnet (agent w/ caching), Opus (analysis)
+  Starting Textract Layout extraction (section-wise)...
+  Extracted 2 sections
+
+============================================================
+STAGE 1: INVENTION EXTRACTION (ReAct Agent + Prompt Caching)
+============================================================
+
+============================================================
+INVENTION EXTRACTION AGENT (ReAct + Prompt Caching)
+============================================================
+Sections: 2 | Total chars: 22042
+Model: us.anthropic.claude-opus-4-20250514-v1:0
+Confidence threshold: 0.85
+Section-wise document passed as cached system prefix
+
+--- Iteration 1/6 ---
+Action: EXTRACT (full document in cache)
+  Iteration 1 failed: Read timeout on endpoint URL: "https://bedrock-runtime.us-east-2.amazonaws.com/model/us.anthropic.claude-opus-4-20250514-v1%3A0/invoke"
+--- Iteration 2/6 ---
+Action: EXTRACT (full document in cache)
+  Parse error in extraction, requesting immediate fix...
+  Schema validation: PASSED
+  Extracted: High-Performance Titanium-Based Metallic Glass Alloys
+  Tool: PATENTABILITY_CHECK (3-facet rubric)
+  Classification: Potential Invention (score: 6/6)
+    Facet A (Nature of the Described Innovation): 2/2 — The work clearly defines a composition of matter - specific metallic glass alloy
+    Facet B (Conceptual Foundation or Possible Judicial Exception): 2/2 — The document provides a fully specified, reproducible manufacturing process incl
+    Facet C (Practical Application or Technical Integration): 2/2 — The work demonstrates measurable improvements over prior art, specifically doubl
+  Justification: This work describes specific metallic glass compositions with reproducible manufacturing methods and demonstrates measurable improvements over existing TBMGs, doubling the critical casting diameter while eliminating toxic/precious elements.
+Action: VALIDATE
+  Self-reported confidence: 0.92
+  Suggestions empty: False
+  Valid: True
+  Tool: JUDGE_BOT (independent confidence calibration)
+  Judge confidence: 1.00
+    completeness: 2 — All required fields are filled with detailed and substantive content, including key technical features and citations.
+    specificity: 2 — The technical description and inventor keywords use precise technical language and domain-specific terms, such as 'glass-forming ability' and 'titanium-based metallic glass'.
+    internal_consistency: 2 — The solution approach addresses the problem statement, and the key technical features align with the technical description, demonstrating a coherent and aligned narrative.
+    citation_quality: 2 — The citations appear to be direct quotes with section references, reading like real paper excerpts and providing strong evidence for the invention's claims.
+    patent_readiness: 2 — The invention name is concise and descriptive, and the description contains enough technical specifics for effective prior art search, making it suitable for patent filing.
+  Assessment: This invention extraction is of exceptionally high quality, demonstrating thoroughness, precision, and consistency throughout. It is well-suited for patent filing and prior art search.
+  Calibrated confidence: 0.92 (self=0.92, judge=1.00, strategy=minimum)
+  STOP: confidence>=0.85
+
+============================================================
+EXTRACTION COMPLETE
+Invention: High-Performance Titanium-Based Metallic Glass Alloys
+Citations: {'invention_name': ['we report our discovery of a series of TBMGs in the (TiZrHf),(CuNi),(SnSi), pseudo-ternary system'], 'technical_description': ['These alloys possess an exceptionally large dc, reaching up to 12 mm', 'exhibit a low density (7.0-7.3 g/cm³), high fracture-strength (up to ~2700 MPa)'], 'problem_statement': ['Most TBMGs must be manufactured with at least one dimension (the shortest one) kept below 6 mm', 'only certain alloys in the Ti-Zr-Cu-Fe(Ni)-Bel² and Ti-Zr-Cu-Pd-Sn 13,14 systems have been found to reach above the 10 mm landmark'], 'solution_approach': ['alloys with compositions around (TiZrHf)₅₅(CuNi)₄₀.₅(SnSi)₄.₅', 'Alloy ingots of different compositions were prepared through arc-melting'], 'key_technical_features': ['critical casting diameter of 12 mm', 'The fracture strength (σf) of the present alloys ranges from 2.4 to 2.7 GPa', 'underwent a 9.4% plastic strain'], 'domain_classification': ['Titanium-based metallic glasses (TBMGs)', 'Among the many different types of MGs, Ti-based MGs (TBMGs) are particularly attractive'], 'statutory_category': ['A series of Be and precious-metal free TBMGs in the (TiZrHf),(CuNi),(SnSi), pseudo-ternary system'], 'inventor_keywords': ['TBMGs', 'glass-forming ability (GFA)', 'Be and precious-metal free']}
+Patentability: Potential Invention (6/6)
+Iterations: 2
+Stop reason: confidence>=0.85
+Final confidence: 0.92
+Conversation turns: 9
+  Agent logs saved: logs/react_agent_cached_20260209_214700.json
+
+============================================================
+STAGE 2: GENERATE SEARCH QUERIES
+============================================================
+  Generated 10 queries:
+    - titanium zirconium hafnium metallic glass alloy
+    - beryllium-free titanium bulk metallic glass composition
+    - titanium-based amorphous alloy copper nickel tin
+    - metallic glass critical casting diameter 10mm
+    - TiZrHf CuNi bulk metallic glass formation
+    - titanium metallic glass 2500 MPa strength
+    - amorphous titanium alloy plastic strain compression
+    - bulk metallic glass without precious metals
+    - titanium-based glassy alloy crystallization activation energy
+    - pseudo-ternary metallic glass system high strength
+
+============================================================
+STAGE 3: PATENT SEARCH (SerpAPI, parallel)
+============================================================
+  [SEARCH] titanium zirconium hafnium metallic glass alloy
+  [SEARCH] beryllium-free titanium bulk metallic glass composition
+  [SEARCH] titanium-based amorphous alloy copper nickel tin
+  [SEARCH] metallic glass critical casting diameter 10mm
+  [SEARCH] TiZrHf CuNi bulk metallic glass formation
+  [DONE] metallic glass critical casting diameter 10mm -> 5 results
+  [SEARCH] titanium metallic glass 2500 MPa strength
+  [DONE] TiZrHf CuNi bulk metallic glass formation -> 0 results
+  [SEARCH] amorphous titanium alloy plastic strain compression
+  [DONE] beryllium-free titanium bulk metallic glass composition -> 5 results
+  [SEARCH] bulk metallic glass without precious metals
+  [DONE] titanium-based amorphous alloy copper nickel tin -> 5 results
+  [SEARCH] titanium-based glassy alloy crystallization activation energy
+  [DONE] titanium zirconium hafnium metallic glass alloy -> 5 results
+  [SEARCH] pseudo-ternary metallic glass system high strength
+  [DONE] amorphous titanium alloy plastic strain compression -> 5 results
+  [DONE] bulk metallic glass without precious metals -> 5 results
+  [DONE] titanium-based glassy alloy crystallization activation energy -> 5 results
+  [DONE] pseudo-ternary metallic glass system high strength -> 5 results
+  [DONE] titanium metallic glass 2500 MPa strength -> 5 results
+  Merging results for: 'titanium zirconium hafnium metallic glass alloy'
+  Merging results for: 'beryllium-free titanium bulk metallic glass composition'
+  Merging results for: 'titanium-based amorphous alloy copper nickel tin'
+  Merging results for: 'metallic glass critical casting diameter 10mm'
+  Merging results for: 'TiZrHf CuNi bulk metallic glass formation'
+  Merging results for: 'titanium metallic glass 2500 MPa strength'
+  Merging results for: 'amorphous titanium alloy plastic strain compression'
+  Merging results for: 'bulk metallic glass without precious metals'
+  Merging results for: 'titanium-based glassy alloy crystallization activation energy'
+  Merging results for: 'pseudo-ternary metallic glass system high strength'
+  Total unique patents: 42
+
+============================================================
+STAGE 4: FETCH PATENT DETAILS
+============================================================
+  Using cached: WO2014173539A1
+  Using cached: WO2014173541A1
+  Using cached: EP3077561B1
+  Using cached: US20150053312A1
+  Using cached: JPH02307844A
+  Using cached: CN112063937A
+  Using cached: CN109355602B
+  Using cached: US11123797B2
+  Using cached: US9643244B2
+  Using cached: US10087505B2
+  Got details for 10 patents
+
+============================================================
+STAGE 5: PATENT ANALYSIS (Opus)
+============================================================
+  Analyzed 5 patents:
+    WO2014173539A1: related (0.3)
+    WO2014173541A1: related (0.25)
+    EP3077561B1: blocking (0.85)
+    US20150053312A1: related (0.4)
+    JPH02307844A: related (0.15)
+
+============================================================
+STAGE 6: FINAL REPORT
+============================================================
+  Summary:
+    Patents found: 10
+    Blocking: 1
+    Relevant: 0
+    Related: 4
+
+Report saved: s3://patent-pdf-input-786827631714/results/OSU-24-48_publication_report.json
+
+============================================================
+PIPELINE COMPLETE
+============================================================
+============================================================
+Running: input/OSU-24-65_publication.pdf
+============================================================
+/home/ec2-user/.local/lib/python3.9/site-packages/boto3/compat.py:89: PythonDeprecationWarning: Boto3 will no longer support Python 3.9 starting April 29, 2026. To continue receiving service updates, bug fixes, and security updates please upgrade to Python 3.10 or later. More information can be found here: https://aws.amazon.com/blogs/developer/python-support-policy-updates-for-aws-sdks-and-tools/
+  warnings.warn(warning, PythonDeprecationWarning)
+
+############################################################
+PATENT PRIOR ART SEARCH PIPELINE (Prompt-Cached)
+############################################################
+Input: s3://patent-pdf-input-786827631714/input/OSU-24-65_publication.pdf
+Models: Sonnet (agent w/ caching), Opus (analysis)
+  Starting Textract Layout extraction (section-wise)...
+  Extracted 7 sections
+
+============================================================
+STAGE 1: INVENTION EXTRACTION (ReAct Agent + Prompt Caching)
+============================================================
+
+============================================================
+INVENTION EXTRACTION AGENT (ReAct + Prompt Caching)
+============================================================
+Sections: 7 | Total chars: 48779
+Model: us.anthropic.claude-opus-4-20250514-v1:0
+Confidence threshold: 0.85
+Section-wise document passed as cached system prefix
+
+--- Iteration 1/6 ---
+Action: EXTRACT (full document in cache)
+  Parse error in extraction, requesting immediate fix...
+  Schema validation: PASSED
+  Extracted: Calibration-free solid-state screen-printed ion-selective electrodes
+  Tool: PATENTABILITY_CHECK (3-facet rubric)
+  Classification: Potential Invention (score: 6/6)
+    Facet A (Nature of the Described Innovation): 2/2 — The document clearly describes a manufactured product - screen-printed ion-selec
+    Facet B (Conceptual Foundation or Possible Judicial Exception): 2/2 — The invention specifies a complete, reproducible mechanism including exact mater
+    Facet C (Practical Application or Technical Integration): 2/2 — The invention demonstrates measurable technical improvements with specific quant
+  Justification: This work describes a concrete manufactured electrode device with fully specified fabrication methods and demonstrates measurable technical improvements in calibration-free operation compared to traditional ISEs.
+Action: VALIDATE
+  Self-reported confidence: 0.92
+  Suggestions empty: False
+  Valid: True
+  Tool: JUDGE_BOT (independent confidence calibration)
+  Judge confidence: 1.00
+    completeness: 2 — All required fields are filled with substantive content, and key technical features are distinct and well-described.
+    specificity: 2 — The technical description is concrete and mentions specific techniques, algorithms, and architectures, and inventor keywords are precise domain terms.
+    internal_consistency: 2 — The solution approach addresses the problem statement, key technical features align with the technical description, and the statutory category matches the described invention.
+    citation_quality: 2 — Citations are clearly direct quotes with section IDs, and they read like real paper excerpts.
+    patent_readiness: 2 — The invention name is concise and descriptive, and the description contains enough technical specifics for effective prior art search.
+  Assessment: This invention extraction is of exceptionally high quality, with clear and specific descriptions, consistent and well-aligned fields, and high-quality citations. It is well-suited for patent searching and evaluation.
+  Calibrated confidence: 0.92 (self=0.92, judge=1.00, strategy=minimum)
+  STOP: confidence>=0.85
+
+============================================================
+EXTRACTION COMPLETE
+Invention: Calibration-free solid-state screen-printed ion-selective electrodes
+Citations: {'invention_name': ['The reusable solid-state calibration-free screen-printed ion-selective electrodes (SP-ISEs) have been developed'], 'technical_description': ['with a carbon paste and PEDOT: PEDOT-S (S=sulfonated) back contact. The calibration-free Na+ and Ca2+ SP-ISEs showed a near Nernstian response of 52.1 ± 2.0 mV/log [aNa+] and 27.3 ± 0.8 mV/log [aCa2+] respectively'], 'problem_statement': ['A poorly defined and drifting interfacial potential of the ISE can arise, among other reasons, from the formation of interfacial (electrode/solid-state back contact/ISM) water layers, irreproducible device-to-device potentials, and mechanical and chemical instability of back contact material'], 'solution_approach': ['The unique carbon paste and PEDOT: PEDOT-S copolymer combined back contact on carbon substrate allowed us to fix the intercept with a constant low current treatment across different ionophores for both monovalent Na+ and divalent Ca2+ cations'], 'key_technical_features': ['A constant anodic current of 10 nA for 3600 S and subsequently 1 nA for 3600 S was applied to the electrodes', 'The calibration-free SP-ISEs showed a near Nernstian response of 52.1 ± 2.0 mV/log [aNa+] and 27.3 ± 0.8 mV/log [aCa2+]'], 'domain_classification': ['Electrochemical sensors', 'environmental monitoring applications'], 'statutory_category': ['Fabrication of solid-state SP-ISEs', 'The fabricated Na+ and Ca2+ calibration-free SP-ISEs'], 'inventor_keywords': ['Ion-selective electrodes, Calcium ion sensors, Sodium ion sensors, Screen printed electrodes Calibration-free']}
+Patentability: Potential Invention (6/6)
+Iterations: 1
+Stop reason: confidence>=0.85
+Final confidence: 0.92
+Conversation turns: 8
+  Agent logs saved: logs/react_agent_cached_20260209_215213.json
+
+============================================================
+STAGE 2: GENERATE SEARCH QUERIES
+============================================================
+  Generated 10 queries:
+    - solid-state ion-selective electrode calibration-free PEDOT
+    - screen-printed carbon electrode ion sensing stable
+    - PEDOT copolymer back contact ion-selective electrode
+    - interfacial potential stabilization solid-state ISE sensor
+    - carbon paste transduction layer electrochemical sensor
+    - constant current treatment ion-selective electrode conditioning
+    - calibration-free potentiometric sensor carbon substrate PEDOT
+    - water layer blocking solid-state reference electrode
+    - electrodeposited conducting polymer ion-selective membrane interface
+    - reusable screen-printed potentiometric sensor stable intercept
+
+============================================================
+STAGE 3: PATENT SEARCH (SerpAPI, parallel)
+============================================================
+  [SEARCH] solid-state ion-selective electrode calibration-free PEDOT
+  [SEARCH] screen-printed carbon electrode ion sensing stable
+  [SEARCH] PEDOT copolymer back contact ion-selective electrode
+  [SEARCH] interfacial potential stabilization solid-state ISE sensor
+  [SEARCH] carbon paste transduction layer electrochemical sensor
+  [DONE] PEDOT copolymer back contact ion-selective electrode -> 5 results
+  [SEARCH] constant current treatment ion-selective electrode conditioning
+  [DONE] carbon paste transduction layer electrochemical sensor -> 5 results
+  [SEARCH] calibration-free potentiometric sensor carbon substrate PEDOT
+  [DONE] interfacial potential stabilization solid-state ISE sensor -> 5 results
+  [SEARCH] water layer blocking solid-state reference electrode
+  [DONE] screen-printed carbon electrode ion sensing stable -> 5 results
+  [SEARCH] electrodeposited conducting polymer ion-selective membrane interface
+  [DONE] calibration-free potentiometric sensor carbon substrate PEDOT -> 5 results
+  [SEARCH] reusable screen-printed potentiometric sensor stable intercept
+  [DONE] constant current treatment ion-selective electrode conditioning -> 5 results
+  [DONE] water layer blocking solid-state reference electrode -> 5 results
+  [DONE] reusable screen-printed potentiometric sensor stable intercept -> 5 results
+  [DONE] electrodeposited conducting polymer ion-selective membrane interface -> 5 results
+  [DONE] solid-state ion-selective electrode calibration-free PEDOT -> 5 results
+  Merging results for: 'solid-state ion-selective electrode calibration-free PEDOT'
+  Merging results for: 'screen-printed carbon electrode ion sensing stable'
+  Merging results for: 'PEDOT copolymer back contact ion-selective electrode'
+  Merging results for: 'interfacial potential stabilization solid-state ISE sensor'
+  Merging results for: 'carbon paste transduction layer electrochemical sensor'
+  Merging results for: 'constant current treatment ion-selective electrode conditioning'
+  Merging results for: 'calibration-free potentiometric sensor carbon substrate PEDOT'
+  Merging results for: 'water layer blocking solid-state reference electrode'
+  Merging results for: 'electrodeposited conducting polymer ion-selective membrane interface'
+  Merging results for: 'reusable screen-printed potentiometric sensor stable intercept'
+  Total unique patents: 50
+
+============================================================
+STAGE 4: FETCH PATENT DETAILS
+============================================================
+  Using cached: TWI695166B
+  Using cached: KR20190139376A
+  Using cached: DE102018128885A1
+  Using cached: US10866208B2
+  Using cached: WO2021236018A1
+  Using cached: CN113514525A
+  Using cached: CN102012392A
+  Using cached: CA2968888A1
+  Using cached: JPWO2015002060A1
+  Using cached: WO2020225357A1
+  Got details for 10 patents
+
+============================================================
+STAGE 5: PATENT ANALYSIS (Opus)
+============================================================
+  Analyzed 5 patents:
+    TWI695166B: relevant (0.7)
+    KR20190139376A: related (0.4)
+    DE102018128885A1: related (0.3)
+    US10866208B2: related (0.5)
+    WO2021236018A1: related (0.35)
+
+============================================================
+STAGE 6: FINAL REPORT
+============================================================
+  Summary:
+    Patents found: 10
+    Blocking: 0
+    Relevant: 1
+    Related: 4
+
+Report saved: s3://patent-pdf-input-786827631714/results/OSU-24-65_publication_report.json
+
+============================================================
+PIPELINE COMPLETE
+============================================================
+============================================================
+Running: input/OSU-25-13_publication.pdf
+============================================================
+/home/ec2-user/.local/lib/python3.9/site-packages/boto3/compat.py:89: PythonDeprecationWarning: Boto3 will no longer support Python 3.9 starting April 29, 2026. To continue receiving service updates, bug fixes, and security updates please upgrade to Python 3.10 or later. More information can be found here: https://aws.amazon.com/blogs/developer/python-support-policy-updates-for-aws-sdks-and-tools/
+  warnings.warn(warning, PythonDeprecationWarning)
+
+############################################################
+PATENT PRIOR ART SEARCH PIPELINE (Prompt-Cached)
+############################################################
+Input: s3://patent-pdf-input-786827631714/input/OSU-25-13_publication.pdf
+Models: Sonnet (agent w/ caching), Opus (analysis)
+  Starting Textract Layout extraction (section-wise)...
+  Extracted 4 sections
+
+============================================================
+STAGE 1: INVENTION EXTRACTION (ReAct Agent + Prompt Caching)
+============================================================
+
+============================================================
+INVENTION EXTRACTION AGENT (ReAct + Prompt Caching)
+============================================================
+Sections: 4 | Total chars: 54712
+Model: us.anthropic.claude-opus-4-20250514-v1:0
+Confidence threshold: 0.85
+Section-wise document passed as cached system prefix
+
+--- Iteration 1/6 ---
+Action: EXTRACT (full document in cache)
+  Parse error in extraction, requesting immediate fix...
+  Schema validation: PASSED
+  Extracted: 3D Printable Frontally Polymerizing Clay-Based Construction Material
+  Tool: PATENTABILITY_CHECK (3-facet rubric)
+  Patentability check: parse error, skipping
+Action: VALIDATE
+  Self-reported confidence: 0.88
+  Suggestions empty: False
+  Valid: True
+  Tool: JUDGE_BOT (independent confidence calibration)
+  Judge confidence: 1.00
+    completeness: 2 — All required fields are filled with detailed and substantive content, including key technical features and citations for each field.
+    specificity: 2 — The technical description is concrete and mentions specific techniques, such as thermally initiated frontal polymerization, and the inventor keywords are precise domain terms.
+    internal_consistency: 2 — The solution approach effectively addresses the problem statement, and the key technical features align with the technical description, demonstrating a coherent and aligned narrative.
+    citation_quality: 2 — The citations appear to be direct quotes with section references, reading like real paper excerpts, and are specific to the invention.
+    patent_readiness: 2 — The invention name is concise and descriptive, and the description contains enough technical specifics for effective prior art search.
+  Assessment: This invention extraction is of exceptional quality, demonstrating thoroughness, precision, and coherence. It is well-suited for patent searching and evaluation.
+  Calibrated confidence: 0.88 (self=0.88, judge=1.00, strategy=minimum)
+  STOP: confidence>=0.85
+
+============================================================
+EXTRACTION COMPLETE
+Invention: 3D Printable Frontally Polymerizing Clay-Based Construction Material
+Citations: {'invention_name': ['3D printable, clay-based construction material that provides structural properties comparable to concrete yet cures immediately after printing'], 'technical_description': ['Thermally initiated frontal polymerization of an acrylamide-based binder enables setting during extrusion', 'The printed material reaches buildable strengths of 3 MPa immediately after printing', 'surpasses 17 MPa, the strength required of residential structural concrete, in just 3 days'], 'problem_statement': ['Cement-based concretes require approximately 10h to fully set, resulting in poor compressive strength immediately after extrusion, roughly 1.8 kPa', 'Cement production is responsible for approximately 8% of global CO2 emissions', 'pausing the print to place supports, such as wooden planks'], 'solution_approach': ['Thermally initiated FP, which uses a chemical initiator that degrades at a specific temperature', 'the extruder nozzle, and the polymerization front to move at the same velocity, enabling continuous printing without supports'], 'key_technical_features': ['our material contains 70-80 wt.% biobased materials', 'The material reaches roughly 3 MPa immediately after frontal polymerization', 'front velocities ranging from 6.7 to 2.32 cm/min'], 'domain_classification': ['additive manufacturing (AM), also known as 3D printing, has become widely used for on-demand infrastructure construction'], 'statutory_category': ['The concrete mixture used in this study was synthesized using the materials and procedure outlined below', 'comprised of a binder material, such as cement, and an aggregate material'], 'inventor_keywords': ['Frontal polymerization . Additive manufacturing . 3D printing Concrete . Sustainability']}
+Iterations: 1
+Stop reason: confidence>=0.85
+Final confidence: 0.88
+Conversation turns: 8
+  Agent logs saved: logs/react_agent_cached_20260209_215601.json
+
+============================================================
+STAGE 2: GENERATE SEARCH QUERIES
+============================================================
+  Generated 10 queries:
+    - frontal polymerization additive manufacturing construction material
+    - thermally initiated polymerization 3D printing extrusion
+    - acrylamide polymer binder clay aggregate composite
+    - rapid curing 3D printable cementitious material
+    - self-propagating polymerization construction printing immediate strength
+    - biobased aggregate polymer matrix 3D printing
+    - clay sand biochar hemp fiber composite
+    - continuous layer deposition without support structures
+    - low carbon footprint 3D printable building material
+    - thermal initiator crosslinker extrusion based additive manufacturing
+
+============================================================
+STAGE 3: PATENT SEARCH (SerpAPI, parallel)
+============================================================
+  [SEARCH] frontal polymerization additive manufacturing construction material
+  [SEARCH] thermally initiated polymerization 3D printing extrusion
+  [SEARCH] acrylamide polymer binder clay aggregate composite
+  [SEARCH] rapid curing 3D printable cementitious material
+  [SEARCH] self-propagating polymerization construction printing immediate strength
+  [DONE] frontal polymerization additive manufacturing construction material -> 5 results
+  [SEARCH] biobased aggregate polymer matrix 3D printing
+  [DONE] self-propagating polymerization construction printing immediate strength -> 5 results
+  [SEARCH] clay sand biochar hemp fiber composite
+  [DONE] thermally initiated polymerization 3D printing extrusion -> 5 results
+  [SEARCH] continuous layer deposition without support structures
+  [DONE] rapid curing 3D printable cementitious material -> 5 results
+  [SEARCH] low carbon footprint 3D printable building material
+  [DONE] biobased aggregate polymer matrix 3D printing -> 5 results
+  [SEARCH] thermal initiator crosslinker extrusion based additive manufacturing
+  [DONE] clay sand biochar hemp fiber composite -> 5 results
+  [DONE] continuous layer deposition without support structures -> 5 results
+  [DONE] acrylamide polymer binder clay aggregate composite -> 5 results
+  [DONE] thermal initiator crosslinker extrusion based additive manufacturing -> 5 results
+  [DONE] low carbon footprint 3D printable building material -> 5 results
+  Merging results for: 'frontal polymerization additive manufacturing construction material'
+  Merging results for: 'thermally initiated polymerization 3D printing extrusion'
+  Merging results for: 'acrylamide polymer binder clay aggregate composite'
+  Merging results for: 'rapid curing 3D printable cementitious material'
+  Merging results for: 'self-propagating polymerization construction printing immediate strength'
+  Merging results for: 'biobased aggregate polymer matrix 3D printing'
+  Merging results for: 'clay sand biochar hemp fiber composite'
+  Merging results for: 'continuous layer deposition without support structures'
+  Merging results for: 'low carbon footprint 3D printable building material'
+  Merging results for: 'thermal initiator crosslinker extrusion based additive manufacturing'
+  Total unique patents: 48
+
+============================================================
+STAGE 4: FETCH PATENT DETAILS
+============================================================
+  Using cached: US11008458B2
+  Using cached: JP6570662B2
+  Using cached: JP6510509B2
+  Using cached: US11077607B2
+  Using cached: CN107000317B
+  Using cached: CN108136662B
+  Using cached: US10501385B1
+  Using cached: US20210147672A1
+  Using cached: US20200133235A1
+  Using cached: JP6751392B2
+  Got details for 10 patents
+
+============================================================
+STAGE 5: PATENT ANALYSIS (Opus)
+============================================================
+  Analyzed 5 patents:
+    US11008458B2: related (0.2)
+    JP6570662B2: related (0.3)
+    JP6510509B2: related (0.15)
+    US11077607B2: related (0.1)
+    CN107000317B: related (0.25)
+
+============================================================
+STAGE 6: FINAL REPORT
+============================================================
+  Summary:
+    Patents found: 10
+    Blocking: 0
+    Relevant: 0
+    Related: 5
+
+Report saved: s3://patent-pdf-input-786827631714/results/OSU-25-13_publication_report.json
+
+============================================================
+PIPELINE COMPLETE
+============================================================

@@ -1,0 +1,156 @@
+{
+  "s01": {
+    "section_id": "s01",
+    "section_title": "Abstract",
+    "rolling_summary": [
+      "- This paper introduces MDAgents, a multi-agent framework that dynamically assigns collaboration structures (solo or group) among Large Language Models based on medical task complexity, mirroring real-world medical decision-making processes. Evaluated on ten medical benchmarks, MDAgents achieved superior performance on seven benchmarks with improvements up to 4.2% over baseline methods, with group collaboration incorporating moderator review and external knowledge yielding an 11.8% average accuracy gain. The framework effectively optimizes efficiency and accuracy by automatically determining appropriate complexity levels for diverse medical tasks."
+    ]
+  },
+  "s02": {
+    "section_id": "s02",
+    "section_title": "1 Introduction",
+    "rolling_summary": [
+      "- This paper introduces MDAgents, an adaptive medical decision-making framework that uses Large Language Models to emulate real-world clinical processes through dynamic collaboration among AI agents based on task complexity. The framework operates in four steps: complexity assessment, agent recruitment, analysis and synthesis, and final decision-making. MDAgents demonstrates superior accuracy on 7 out of 10 medical benchmarks compared to solo and group LLM methods, with improved robustness across hyperparameters and effective performance-efficiency trade-offs."
+    ]
+  },
+  "s03": {
+    "section_id": "s03",
+    "section_title": "2 Related Works",
+    "rolling_summary": [
+      "- This paper proposes MDAgents, a multi-agent framework for medical decision-making that dynamically selects optimal collaboration strategies based on query complexity, addressing limitations of existing static multi-agent approaches. The method leverages multiple expert LLMs with flexible interaction patterns and early stopping mechanisms, outperforming previous single-agent and fixed multi-agent methods across key decision-making dimensions. The framework combines role-playing, debate, and refinement techniques to improve accuracy on complex medical tasks while maintaining computational efficiency."
+    ]
+  },
+  "s04": {
+    "section_id": "s04",
+    "section_title": "3 MDAgents: Medical Decision-making Agents",
+    "rolling_summary": [
+      "- MDAgents is an adaptive multi-agent framework that classifies medical queries by complexity (low, moderate, high) and recruits appropriate LLM agents\u2014from single primary care clinicians to multidisciplinary or integrated care teams\u2014to collaboratively analyze and synthesize information using techniques like Chain-of-Thought and consensus-building. Evaluated across 10 medical benchmarks including PMC-VQA, MedQA, and MIMIC-CXR, MDAgents achieves state-of-the-art performance by dynamically matching team composition and reasoning strategies to query complexity, outperforming single-agent and fixed multi-agent baselines."
+    ]
+  },
+  "s05": {
+    "section_id": "s05",
+    "section_title": "4 Experiments and Results",
+    "rolling_summary": [
+      "- This paper presents MDAgents, an adaptive multi-agent framework for medical decision-making that dynamically selects inference complexity (low, moderate, or high) based on question difficulty, outperforming single-agent and static multi-agent baselines across 10 medical benchmarks. The method achieves 71.8% baseline accuracy, improving to 80.3% with moderator review and retrieval-augmented generation, while using fewer computational resources (9.3 API calls) than group settings (20.3 calls) and demonstrating robustness to parameter variations and convergence of agent opinions during collaboration."
+    ]
+  },
+  "s06": {
+    "section_id": "s06",
+    "section_title": "5 Conclusion",
+    "rolling_summary": [
+      "- MDAgents is a framework that dynamically assigns LLMs to independent or collaborative roles based on task complexity to improve medical decision-making, mirroring real-world clinical consultation processes. The framework was evaluated on 10 medical benchmarks, outperforming previous solo and group methods in 7 of them, with case studies demonstrating how agents with initially divergent perspectives converge on correct diagnoses. Ablation studies identified critical components driving the framework's success, establishing MDAgents as an effective approach for enhancing LLM-assisted medical diagnosis through multi-modal reasoning and agent collaboration."
+    ]
+  },
+  "s07": {
+    "section_id": "s07",
+    "section_title": "References",
+    "rolling_summary": [
+      "- # Summary\n\nThis paper presents MDAgents, an adaptive multi-agent framework for medical decision-making that dynamically recruits and organizes LLM-based agents based on question complexity. The method classifies medical queries as low, moderate, or high complexity and deploys appropriate collaboration structures\u2014from single clinicians to multidisciplinary teams with hierarchical communication. Evaluated across seven medical QA datasets (MedQA, PubMedQA, DDXPlus, PMC-VQA, Path-VQA, MedVidQA, MIMIC-CXR), MDAgents achieves 83.6% accuracy on MedQA, outperforming single-agent and existing multi-agent baselines, while demonstrating that adaptive collaboration with iterative discussion and moderator review significantly improves performance on complex medical reasoning tasks."
+    ]
+  },
+  "s08": {
+    "section_id": "s08",
+    "section_title": "1. Claims",
+    "rolling_summary": [
+      "- This text evaluates whether a paper's abstract and introduction accurately represent its contributions and scope. The evaluation confirms that the MDAgents framework paper's stated claims\u2014including its adaptive decision-making structure and performance improvements\u2014are properly reflected in the abstract and introduction. The guidelines emphasize that abstracts should clearly articulate contributions, assumptions, and limitations, with claims supported by theoretical and experimental results that indicate generalizability."
+    ]
+  },
+  "s09": {
+    "section_id": "s09",
+    "section_title": "2. Limitations",
+    "rolling_summary": [
+      "- The text provides guidelines for authors on how to properly discuss limitations in scientific papers. It emphasizes that authors should explicitly acknowledge and analyze constraints such as strong assumptions, scope of testing, performance factors, computational efficiency, and fairness/privacy concerns, rather than leaving limitations for reviewers to discover. The guidelines encourage transparency about limitations as a matter of scientific integrity, assuring authors that honest acknowledgment will not be penalized during peer review."
+    ]
+  },
+  "s10": {
+    "section_id": "s10",
+    "section_title": "3. Theory Assumptions and Proofs",
+    "rolling_summary": [
+      "- This document is a checklist item evaluating whether a paper provides complete assumptions and correct proofs for its theoretical results. The answer is NA because the paper contains no theoretical results requiring formal proofs. The guidelines specify that all theorems, formulas, and proofs should be numbered and cross-referenced, with assumptions clearly stated, and proofs either in the main text or supplementary material with appropriate sketches and references."
+    ]
+  },
+  "s11": {
+    "section_id": "s11",
+    "section_title": "4. Experimental Result Reproducibility",
+    "rolling_summary": [
+      "- This document outlines NeurIPS conference reproducibility standards, confirming that a paper provides comprehensive details on datasets, experimental setups, and methodologies sufficient for accurate result reproduction. It establishes that while code and data release are not mandatory, papers must offer reasonable reproducibility pathways appropriate to their contribution type\u2014whether through algorithm descriptions, architecture specifications, model access, or detailed replication instructions."
+    ]
+  },
+  "s12": {
+    "section_id": "s12",
+    "section_title": "5. Open access to data and code",
+    "rolling_summary": [
+      "- This document is a reproducibility assessment checklist rather than a scientific paper. It confirms that a paper provides open access to code and data with sufficient instructions for reproducing experimental results, as verified through a linked repository and supplemental material documentation. The guidelines outline NeurIPS standards for code and data submission, requiring exact commands, environment specifications, data access instructions, and reproducibility scripts for proposed methods and baselines."
+    ]
+  },
+  "s13": {
+    "section_id": "s13",
+    "section_title": "6. Experimental Setting/Details",
+    "rolling_summary": [
+      "- This text evaluates whether a paper adequately documents its experimental methodology, including data splits, hyperparameters, and optimization details. The assessment confirms that the paper provides comprehensive training and test specifications necessary for reproducibility, with details on data splits, sample sizes, and random seeds included throughout the main text or supplementary materials."
+    ]
+  },
+  "s14": {
+    "section_id": "s14",
+    "section_title": "7. Experiment Statistical Significance",
+    "rolling_summary": [
+      "- This text provides guidelines for evaluating whether a scientific paper appropriately reports error bars and statistical significance information. The paper in question answers \"Yes,\" indicating it includes error bars and statistical significance tests with clear explanations of variability sources and calculation methods. The guidelines emphasize that authors should specify what variability is captured, explain calculation methods, state assumptions, distinguish between standard deviation and standard error, and avoid misleading symmetric error bars for asymmetric distributions."
+    ]
+  },
+  "s15": {
+    "section_id": "s15",
+    "section_title": "8. Experiments Compute Resources",
+    "rolling_summary": [
+      "- The paper evaluates large language models (GPT-3.5, GPT-4, and Gemini-Pro) through API-based inference experiments and provides sufficient reproducibility information by documenting the number of API calls and specific configurations used for each experiment, with computational resources managed by the API providers (OpenAI and Gemini)."
+    ]
+  },
+  "s16": {
+    "section_id": "s16",
+    "section_title": "9. Code Of Ethics",
+    "rolling_summary": [
+      "- This text is not a scientific research paper but rather an ethics compliance checklist from NeurIPS. It confirms that the authors have reviewed and affirmed their research adheres to the NeurIPS Code of Ethics, with guidance on how to report deviations if necessary and reminders about maintaining anonymity."
+    ]
+  },
+  "s17": {
+    "section_id": "s17",
+    "section_title": "10. Broader Impacts",
+    "rolling_summary": [
+      "- This text outlines conference guidelines for evaluating whether papers discuss societal impacts of their work. It requires authors to address both positive and negative impacts, including potential misuse, bias, fairness, privacy, and security concerns, with an emphasis on direct paths to harmful applications rather than speculative risks. The guidelines encourage authors to consider harms from intended use, incorrect results, and misuse, and to propose mitigation strategies where applicable."
+    ]
+  },
+  "s18": {
+    "section_id": "s18",
+    "section_title": "11. Safeguards",
+    "rolling_summary": [
+      "- The paper addresses safeguards for responsible release of the MDAgents framework by acknowledging risks such as medical hallucinations and false knowledge. It provides guidelines within the main text to ensure ethical usage and adherence to best practices for both the framework and publicly available datasets. The authors demonstrate a best-faith effort to mitigate potential misuse through these documented safety measures and usage restrictions."
+    ]
+  },
+  "s19": {
+    "section_id": "s19",
+    "section_title": "12. Licenses for existing assets",
+    "rolling_summary": [
+      "- This text outlines guidelines for properly crediting and documenting assets (code, data, models) used in research papers, requiring authors to cite original sources, specify versions and URLs, include license names (e.g., CC-BY 4.0), and respect terms of use for all borrowed materials. The guidelines emphasize that for scraped data, copyright and terms of service must be provided, and for re-packaged datasets, both original and derived licenses should be stated. These standards ensure transparency and proper attribution in academic work."
+    ]
+  },
+  "s20": {
+    "section_id": "s20",
+    "section_title": "13. New Assets",
+    "rolling_summary": [
+      "- This text is not a scientific paper but rather a checklist item evaluating whether a paper introduces and documents new assets. It clarifies that the paper being reviewed does not introduce any new datasets, code, or models, and therefore this documentation requirement does not apply (marked as NA)."
+    ]
+  },
+  "s21": {
+    "section_id": "s21",
+    "section_title": "14. Crowdsourcing and Research with Human Subjects",
+    "rolling_summary": [
+      "- This text is not a scientific paper but rather a checklist item for evaluating research ethics compliance. It clarifies that the paper under review does not involve crowdsourcing or human subject research, therefore detailed instructions, screenshots, and compensation information are not applicable. The guidelines emphasize that when human subjects are central to a paper's contribution, such details should be included in the main paper, and workers must be compensated at least at minimum wage according to NeurIPS ethical standards."
+    ]
+  },
+  "s22": {
+    "section_id": "s22",
+    "section_title": "15. Institutional Review Board (IRB) Approvals or Equivalent for Research with Human Subjects",
+    "rolling_summary": [
+      "- This text is not a scientific paper but rather a checklist item addressing ethical review requirements. It clarifies that the paper in question does not involve human subjects or crowdsourcing, therefore IRB approval is not applicable, while noting that IRB approval is generally required for human subjects research depending on institutional and country-specific guidelines."
+    ]
+  }
+}
