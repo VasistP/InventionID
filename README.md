@@ -488,3 +488,7 @@ patent-agent/
 └── config/
     └── app.env                        # Environment variables (API keys, S3 bucket)
 ```
+
+## ReAct Agent Architecture
+
+![ReAct Agent Mermaid Diagram](https://mermaid.ink/img/pako:eNqtWG1v2zgM_iuCgQEpLust6bVrg2uHvLhrtjTOYndYbykExVYSrY6Vk-yuWZH_fpTk1yZbOuD6obAp8SH5iKToPFk-D6jVsmYh_-4viIiR15lEk8j12mPv68TqR6skbiFJ_ZjxSH69-3sq_ryIuFiSkP2gAfLoYyyIHyN_kUT3cmLdodevL5B76wLIrQsQnYSFAfKJv4Dtci1jukQrwZerWGPhqVrHZgFPQ-7fy1pm70BvqQXcT5Y0ilEM1jKoB0bMI_Z5FAseHmTG-549_)
