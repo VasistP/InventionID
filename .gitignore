@@ -94,4 +94,4 @@ cached/
 # *.tar.gz
 # *.7z
 config/app.env
-.claude
+.claude.claude
