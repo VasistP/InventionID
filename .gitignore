@@ -93,3 +93,5 @@ cached/
 # *.zip
 # *.tar.gz
 # *.7z
+config/app.env
+.claude
