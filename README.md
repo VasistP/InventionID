@@ -488,3 +488,99 @@ patent-agent/
 └── config/
     └── app.env                        # Environment variables (API keys, S3 bucket)
 ```
+
+## ReAct Agent Architecture
+
+
+```mermaid
+
+flowchart TB
+
+START["Input: sections[]<br/>normalized Textract chunks"] --> SYS
+SYS["Build cached system prompt<br/>_build_system_blocks(sections)<br/>(document text cached via cache_control)"] --> ITER
+
+subgraph LOOP[ReAct Loop: InventionExtractionAgentCached.run]
+  direction TB
+
+  ITER{"for i in range(max_iterations)"} --> INVQ{invention is None?}
+
+  %% --------------------
+  %% EXTRACT PHASE
+  %% --------------------
+  INVQ -- YES --> EXTRACT["ACTION: EXTRACT<br/>_extraction_user_msg()"]
+  EXTRACT --> LLM_EX["Tool: LLM call (Claude on Bedrock)<br/>_call_llm() -> invoke_bedrock_with_retry()<br/>guards: BedrockRateLimiter + CircuitBreaker"]
+  LLM_EX --> PARSE_EX["_parse_json_response(response)"]
+
+  PARSE_EX -- "parse fail" --> RETRY_EX["Retry request: return ONLY JSON<br/>_call_llm(...)"]
+  RETRY_EX --> PARSE_EX
+
+  PARSE_EX -- "ok" --> SCHEMA1["Tool: SCHEMA_VALIDATION<br/>validate_schema(parsed)"]
+
+  SCHEMA1 -- "errors" --> SCHEMA_FIX1["TOOL OBSERVATION: SCHEMA_VALIDATION<br/>ask model to fix ALL errors<br/>_call_llm(...)"]
+  SCHEMA_FIX1 --> PARSE_FIX1["_parse_json_response(fix) + validate_schema(fix)"]
+  PARSE_FIX1 --> SET_INV["Set invention = parsed"]
+
+  SCHEMA1 -- "pass" --> SET_INV
+
+  %% --------------------
+  %% PATENTABILITY TOOL
+  %% --------------------
+  SET_INV --> PAT_EN{"PATENTABILITY_CHECK enabled?<br/>load_patentability_config()"}
+  PAT_EN -- YES --> PAT_PROMPT["Tool: PATENTABILITY_CHECK<br/>prompt = build_patentability_prompt(invention, config)"]
+  PAT_PROMPT --> PAT_LLM["_call_llm(...)"]
+  PAT_LLM --> PAT_PARSE["_parse_json_response(response)"]
+  PAT_PARSE --> PAT_VALID["validate_classification(parsed, config)"]
+  PAT_VALID --> PAT_DEC{"classification + config flags"}
+
+  PAT_DEC -- "Scientific Discovery<br/>early_stop_on_not_patentable" --> STOP_NOTPAT["STOP: not_patentable"]
+  PAT_DEC -- "Borderline Case<br/>force_refine_on_borderline" --> VALIDATE
+  PAT_DEC -- "Potential Invention" --> VALIDATE
+
+  PAT_EN -- NO --> VALIDATE
+
+  %% --------------------
+  %% VALIDATE PHASE
+  %% --------------------
+  INVQ -- NO --> VALIDATE
+  VALIDATE["ACTION: VALIDATE<br/>_validation_user_msg(invention, tool_feedback)"] --> LLM_VAL["_call_llm(...)"]
+  LLM_VAL --> PARSE_VAL["_parse_json_response(validation)"]
+  PARSE_VAL --> SELF_CONF["self_confidence = validation.confidence<br/>_normalize_suggestions(...)"]
+
+  %% --------------------
+  %% JUDGE TOOL + CONFIDENCE
+  %% --------------------
+  SELF_CONF --> JUDGE["Tool: JUDGE_BOT<br/>run_judge(bedrock, invention, ...)<br/>inject TOOL OBSERVATION: JUDGE_BOT"]
+  JUDGE --> CAL["confidence = _calibrate_confidence(self_confidence, judge_confidence)<br/>(strategy from load_judge_config())"]
+
+  %% --------------------
+  %% STOP CONDITIONS
+  %% --------------------
+  CAL --> STOPQ{STOP?}
+  STOPQ -- "confidence >= CONFIDENCE_THRESHOLD" --> STOP_OK["STOP: confidence>=threshold"]
+  STOPQ -- "no_suggestions == True" --> STOP_NOSUG["STOP: no_suggestions"]
+
+  %% --------------------
+  %% REFINE PHASE
+  %% --------------------
+  STOPQ -- "else" --> REFINE["ACTION: REFINE<br/>_refinement_user_msg(invention, combined_feedback)"]
+  REFINE --> LLM_REF["_call_llm(...)"]
+  LLM_REF --> PARSE_REF["_parse_json_response(refine)"]
+
+  PARSE_REF -- "ok" --> SCHEMA2["Tool: SCHEMA_VALIDATION (refine)<br/>validate_schema(parsed)"]
+  SCHEMA2 -- "errors" --> SCHEMA_FIX2["TOOL OBSERVATION: SCHEMA_VALIDATION<br/>_call_llm(...) fix JSON"]
+  SCHEMA_FIX2 --> PARSE_FIX2["_parse_json_response(fix) + validate_schema(fix)"]
+  PARSE_FIX2 --> UPDATE_INV["Update invention = parsed"]
+
+  SCHEMA2 -- "pass" --> UPDATE_INV
+  UPDATE_INV --> ITER
+
+end
+
+STOP_OK --> FINAL
+STOP_NOSUG --> FINAL
+STOP_NOTPAT --> FINAL
+
+FINAL["Return dict:<br/>{ success, invention, patentability, iterations,<br/> stop_reason, confidence, conversation_turns }"]
+
+...
+'''
