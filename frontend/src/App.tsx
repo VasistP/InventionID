@@ -34,7 +34,7 @@ export default function App() {
         )}
 
         {showResults && (
-          <ResultsDisplay report={activeSession.report!} progress={activeSession.progress} />
+          <ResultsDisplay report={activeSession.report!} progress={activeSession.progress} durationSeconds={activeSession.durationSeconds} />
         )}
 
         {showError && (

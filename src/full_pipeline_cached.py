@@ -25,6 +25,7 @@ BUCKET = "patent-pdf-input-786827631714"
 
 # Model IDs
 MODEL_SONNET = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"  # For agent
+# MODEL_OPUS = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 MODEL_OPUS = "us.anthropic.claude-opus-4-20250514-v1:0"        # For analysis
 
 # Lazy-initialized components (populated by _init_components())

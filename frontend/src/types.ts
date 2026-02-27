@@ -5,15 +5,19 @@ export interface ProgressMessage {
   error?: string;
   result_key?: string;
   detail?: string;
+  duration_seconds?: number;
 }
 
 export interface PatentAnalysis {
   patent_number: string;
   classification: string;
   relevance_score: number;
-  overlap_areas: string[];
-  key_differences: string[];
-  risk_level: string;
+  overlap_areas?: string[];
+  key_differences?: string[];
+  similarities?: string[];
+  differences?: string[];
+  analysis?: string;
+  risk_level?: string;
 }
 
 export interface Patent {
@@ -58,6 +62,7 @@ export interface AnalysisSession {
   report?: PipelineReport;
   resultKey?: string;
   error?: string;
+  durationSeconds?: number;
 }
 
 export const STAGE_LABELS: Record<number, string> = {

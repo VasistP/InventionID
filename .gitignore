@@ -73,6 +73,10 @@ textract_output/
 textract_outputs/
 *.textract.json
 *.ocr.json
+textract_sections.json
+textract_subchunks.json
+section_summary_items.json
+sections_with_summary_and_embedding.json
 
 # =========================
 # Model / cache artifacts

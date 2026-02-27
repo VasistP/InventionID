@@ -1,5 +1,6 @@
 """Thread-safe wrapper that runs the pipeline with progress reporting."""
 import threading
+import time
 import sys
 import os
 
@@ -25,7 +26,16 @@ def run_pipeline_with_progress(bucket, pdf_key, progress_callback=None):
 
     try:
         from full_pipeline_cached import run_pipeline
-        result = run_pipeline(bucket, pdf_key, progress_callback=progress_callback)
+
+        start_time = time.time()
+
+        def timed_callback(data: dict):
+            if data.get("status") == "completed":
+                data = {**data, "duration_seconds": round(time.time() - start_time, 1)}
+            progress_callback(data)
+
+        effective_callback = timed_callback if progress_callback else None
+        result = run_pipeline(bucket, pdf_key, progress_callback=effective_callback)
 
         if "error" in result:
             if progress_callback:

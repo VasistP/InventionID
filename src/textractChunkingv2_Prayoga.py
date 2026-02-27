@@ -22,7 +22,8 @@ MAJOR_SECTIONS = {
     "appendix", "supplementary material", "supplementary"
 }
 
-# Matches "1 Introduction", "1. Introduction", "II Methods" (but NOT "3.1 Something")
+# Matches "1 Introduction" or "1. Introduction" (but NOT "3.1 Something")
+# TOP_LEVEL_NUM_RE = re.compile(r"^\s*\d+\s*[\.)]?\s+[A-Za-z]")
 TOP_LEVEL_NUM_RE = re.compile(
     r"^\s*(?:\d+|[IVXLCDM]+)\s*[\.)]?\s+[A-Za-z]",
     re.IGNORECASE
@@ -97,7 +98,7 @@ def normalize_textract_chunks(chunks: dict,
     return sections
 
 def extract_text_from_s3_by_sections(bucket, key, include_titles=False):
-    """Extract text grouped by MAJOR section headers using raw boto3 Textract Layout."""
+    """Extract text grouped by MAJOR section headers using Textract Layout."""
     textract_client = boto3.client('textract')
 
     print(f"  Starting Textract (layout analysis)...")
@@ -107,7 +108,7 @@ def extract_text_from_s3_by_sections(bucket, key, include_titles=False):
     )
     job_id = response['JobId']
 
-    # Poll and collect all blocks across paginated results
+    # Collect all blocks across paginated results
     all_blocks = []
     next_token = None
     while True:
@@ -128,11 +129,7 @@ def extract_text_from_s3_by_sections(bucket, key, include_titles=False):
     block_map = {b['Id']: b for b in all_blocks}
 
     def _get_child_text(block):
-        """Extract LINE text from a layout block's CHILD relationships."""
-        child_ids = [
-            cid for r in block.get('Relationships', [])
-            if r['Type'] == 'CHILD' for cid in r['Ids']
-        ]
+        child_ids = [cid for r in block.get('Relationships', []) if r['Type'] == 'CHILD' for cid in r['Ids']]
         lines = []
         for cid in child_ids:
             child = block_map.get(cid, {})
@@ -151,15 +148,9 @@ def extract_text_from_s3_by_sections(bucket, key, include_titles=False):
         if not text:
             return
         if current_chunk_key and current_title and current_chunk_key in chunks:
-            existing = chunks[current_chunk_key][current_title]
-            chunks[current_chunk_key][current_title] = (
-                existing + "\n" + text if existing else text
-            )
+            chunks[current_chunk_key][current_title] += "\n" + text
 
-    layout_blocks = [
-        b for b in all_blocks
-        if b['BlockType'] in ('LAYOUT_SECTION_HEADER', 'LAYOUT_TITLE', 'LAYOUT_TEXT')
-    ]
+    layout_blocks = [b for b in all_blocks if b['BlockType'] in ('LAYOUT_SECTION_HEADER', 'LAYOUT_TITLE', 'LAYOUT_TEXT')]
 
     for b in layout_blocks:
         text = _get_child_text(b)
@@ -167,7 +158,6 @@ def extract_text_from_s3_by_sections(bucket, key, include_titles=False):
             continue
 
         if b['BlockType'] == 'LAYOUT_SECTION_HEADER' and is_major_section_header(text):
-            # Duplicate header (e.g. same section continues on next page) → merge
             if current_title == text.strip() and current_chunk_key:
                 continue
             chunk_counter += 1
@@ -180,15 +170,12 @@ def extract_text_from_s3_by_sections(bucket, key, include_titles=False):
             current_title = text.strip()
             chunks[current_chunk_key] = {current_title: ""}
         else:
-            # Regular text block → append to current section
             if current_chunk_key:
                 _append_text(text)
             else:
-                # Orphan text before any header; use actual page number
-                page_num = b.get('Page', 1)
                 chunk_counter += 1
                 current_chunk_key = f"chunk{chunk_counter}"
-                current_title = f"Page {page_num}"
+                current_title = f"Page 1"
                 chunks[current_chunk_key] = {current_title: text}
 
     return chunks
@@ -204,9 +191,6 @@ if __name__ == "__main__":
     key = sys.argv[2]
     
     chunks = extract_text_from_s3_by_sections(bucket, key)
-    if not chunks:
-        print("ERROR: Textract extraction failed or returned no chunks.")
-        sys.exit(1)
     sections = normalize_textract_chunks(chunks)
     out_path = os.environ.get("OUT_JSON", "textract_sections.json")
     with open(out_path, "w", encoding="utf-8") as f:

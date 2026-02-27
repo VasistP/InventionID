@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
 set -uo pipefail
-export SERPAPI_KEY="a794f1554124f18814caf7a3d1929cf514512e451c3836f93a0a93827b0ecd12"
+# export SERPAPI_KEY="a794f1554124f18814caf7a3d1929cf514512e451c3836f93a0a93827b0ecd12" #Prayoga
+
+export SERPAPI_KEY="3838225e553c20bd0f9a974a00eddd3fc5b70bcbf232fbc23a0189026842ae81" #Pranav
 PYTHON=python3
-SCRIPT="src/full_pipeline_cached.py"
+# SCRIPT="src/full_pipeline_cached.py"
+SCRIPT="src/full_pipeline_integrated_Prayoga.py"
 LOG_FILE="run.log"
 
 pdfs=(
   # "input/Kim et al. - 2024 - MDAgents An Adaptive Collaboration of LLMs for Medical Decision-Making.pdf"
-  # "input/Multi-Quadruped Cooperative Object Transport: Learning Decentralized Pinch-Lift-Move.pdf"
+  "input/Multi-Quadruped Cooperative Object Transport: Learning Decentralized Pinch-Lift-Move.pdf"
   # "input/OSU-22-05_publication.pdf"
   # "input/OSU-23-14_publication.pdf"
   # "input/OSU-23-35_publication.pdf"
   # "input/OSU-24-36_publication.pdf"
-  "input/OSU-24-37_publication.pdf"
+  # "input/OSU-24-37_publication.pdf"
   # "input/cyclotomic040425.pdf"
   # "input/fibarray.pdf"
   # "input/OSU-24-48_publication.pdf"

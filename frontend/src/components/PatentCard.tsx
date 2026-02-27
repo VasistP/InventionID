@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Patent } from '../types';
 
 interface PatentCardProps {
@@ -11,9 +12,16 @@ const classificationColors: Record<string, string> = {
 };
 
 export function PatentCard({ patent }: PatentCardProps) {
+  const [expanded, setExpanded] = useState(false);
   const analysis = patent.analysis;
   const classification = analysis?.classification ?? 'unknown';
   const badgeColor = classificationColors[classification] ?? 'bg-gray-100 text-gray-600 border-gray-200';
+
+  const similarities = analysis?.similarities ?? analysis?.overlap_areas ?? [];
+  const differences = analysis?.differences ?? analysis?.key_differences ?? [];
+  const analysisText = analysis?.analysis;
+
+  const hasDetails = similarities.length > 0 || differences.length > 0 || !!analysisText;
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
@@ -50,27 +58,62 @@ export function PatentCard({ patent }: PatentCardProps) {
             </span>
           </div>
 
-          {analysis.overlap_areas && analysis.overlap_areas.length > 0 && (
-            <div>
-              <p className="text-xs font-medium text-gray-500 mb-1">Overlap Areas</p>
-              <div className="flex flex-wrap gap-1">
-                {analysis.overlap_areas.map((area, i) => (
-                  <span key={i} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                    {area}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+          {hasDetails && (
+            <div className="mt-2">
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="w-full flex items-center justify-between px-3 py-2 text-left bg-gray-50 hover:bg-gray-100 rounded-md transition-colors"
+              >
+                <span className="text-xs font-medium text-gray-600">Detailed Analysis</span>
+                <svg
+                  className={`w-4 h-4 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
 
-          {analysis.key_differences && analysis.key_differences.length > 0 && (
-            <div>
-              <p className="text-xs font-medium text-gray-500 mb-1">Key Differences</p>
-              <ul className="text-xs text-gray-600 space-y-0.5">
-                {analysis.key_differences.map((diff, i) => (
-                  <li key={i}>- {diff}</li>
-                ))}
-              </ul>
+              {expanded && (
+                <div className="mt-2 space-y-3 px-1">
+                  {similarities.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 mb-1">Similarities</p>
+                      <ul className="text-xs text-gray-600 space-y-1">
+                        {similarities.map((item, i) => (
+                          <li key={i} className="flex gap-1.5">
+                            <span className="text-green-500 shrink-0">&#8226;</span>
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {differences.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 mb-1">Differences</p>
+                      <ul className="text-xs text-gray-600 space-y-1">
+                        {differences.map((item, i) => (
+                          <li key={i} className="flex gap-1.5">
+                            <span className="text-red-400 shrink-0">&#8226;</span>
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {analysisText && (
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 mb-1">Analysis</p>
+                      <p className="text-xs text-gray-600 leading-relaxed">{analysisText}</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

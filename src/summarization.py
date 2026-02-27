@@ -1,7 +1,9 @@
 import boto3
 from botocore.config import Config
+from botocore.exceptions import ClientError
 import json
 import asyncio
+import time
 from typing import List, Dict, Any, Optional
 
 
@@ -12,19 +14,31 @@ bedrock = boto3.client(
 )
 
 def summarize_text_haiku(text: str) -> str:
-    prompt = f"""
-Summarize the following scientific text in 2–3 concise sentences.
-Focus on contribution, method, and results.
+    prompt = f"""Summarize the following text in 5-7 sentences optimized for search retrieval. Your summary must:
+
+1. State facts directly without referencing any paper, author, section, or text.
+2. Preserve ALL specific technical terms, method names, algorithm names, model architectures, and domain-specific vocabulary.
+3. Include specific quantities, metrics, datasets, and benchmarks mentioned.
+4. Name the concrete problem being solved and the concrete approach used.
+5. Include key technical features, components, and their relationships.
+
+Bad: "This paper proposes a framework..."
+Bad: "The authors introduce..."
+Bad: "A method is described for improving performance."
+Good: "A hierarchical multi-agent reinforcement learning framework dynamically assigns sub-tasks using attention-based communication between agents. The reward shaping mechanism uses potential-based functions to address sparse reward problems in cooperative navigation."
+Good: "Decentralized control with graph neural network message passing enables coordination among 64 autonomous drones. Collision avoidance uses velocity obstacles combined with A* path planning."
+
+If the text is just a list of references/citations, simply respond with: "Reference list of the paper."
+If the text is a NeurIPS/conference paper checklist, ethics statement, broader impact statement, reproducibility statement, or submission guidelines, simply respond with: "NONE"
 
 Text:
 {text}
 
-Return ONLY the summary text.
-"""
+Summary:"""
 
     body = {
         "anthropic_version": "bedrock-2023-05-31",
-        "max_tokens": 500,
+        "max_tokens": 1000,
         "temperature": 0.2,
         "messages": [
             {
@@ -34,22 +48,31 @@ Return ONLY the summary text.
         ]
     }
 
-    response = bedrock.invoke_model(
-        modelId="us.anthropic.claude-haiku-4-5-20251001-v1:0",
-        body=json.dumps(body),
-        contentType="application/json",
-        accept="application/json"
-    )
-
-    result = json.loads(response["body"].read())
-    return result["content"][0]["text"].strip()
+    for attempt in range(4):
+        try:
+            response = bedrock.invoke_model(
+                modelId="us.anthropic.claude-haiku-4-5-20251001-v1:0",
+                body=json.dumps(body),
+                contentType="application/json",
+                accept="application/json"
+            )
+            result = json.loads(response["body"].read())
+            return result["content"][0]["text"].strip()
+        except ClientError as e:
+            if "ServiceUnavailable" in str(e) or "ThrottlingException" in str(e):
+                wait = 2 ** attempt
+                print(f"  Bedrock throttled (attempt {attempt+1}/4), retrying in {wait}s...")
+                time.sleep(wait)
+            else:
+                raise
+    raise RuntimeError("Bedrock summarization failed after 4 retries")
 
 
 def embed_text_titan(text: str) -> list[float]:
     body = {
-        "inputText": text
+        "inputText": text,
         # Optional knobs (only if you know you want them):
-        # "normalize": True,
+        "normalize": True
         # "dimensions": 1024,
     }
 
@@ -61,6 +84,7 @@ def embed_text_titan(text: str) -> list[float]:
     )
 
     out = json.loads(resp["body"].read())
+
     return out["embedding"]
 
 

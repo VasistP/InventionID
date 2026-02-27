@@ -35,13 +35,15 @@ export function usePipeline() {
             if (status.result_key) {
               try {
                 const report = await fetchResults(status.result_key);
-                updateSession(sessionId, { report, status: 'completed', resultKey: status.result_key });
+                const completedMsg = status.progress?.find((p: ProgressMessage) => p.status === 'completed');
+                updateSession(sessionId, { report, status: 'completed', resultKey: status.result_key, durationSeconds: completedMsg?.duration_seconds });
               } catch {
                 updateSession(sessionId, { status: 'error', error: 'Pipeline finished but failed to fetch results' });
               }
             } else if (status.status === 'completed' && status.result_key) {
               const report = await fetchResults(status.result_key);
-              updateSession(sessionId, { report, status: 'completed' });
+              const completedMsg = status.progress?.find((p: ProgressMessage) => p.status === 'completed');
+              updateSession(sessionId, { report, status: 'completed', durationSeconds: completedMsg?.duration_seconds });
             } else {
               updateSession(sessionId, { status: 'error', error: 'Pipeline finished without results' });
             }
@@ -108,7 +110,11 @@ export function usePipeline() {
 
                 if (msg.status === 'completed' && msg.result_key) {
                   fetchResults(msg.result_key).then((report) => {
-                    updateSession(sessionId, { report, status: 'completed' });
+                    updateSession(sessionId, {
+                      report,
+                      status: 'completed',
+                      durationSeconds: msg.duration_seconds,
+                    });
                   }).catch(() => {
                     updateSession(sessionId, {
                       status: 'error',

@@ -541,20 +541,41 @@ def parse_json(text):
 def extract_text_from_s3(bucket, key):
     """Extract text from PDF using Textract"""
     print(f"  Starting Textract...")
-    response = textract.start_document_text_detection(
-        DocumentLocation={'S3Object': {'Bucket': bucket, 'Name': key}}
+    response = textract.start_document_analysis(
+        DocumentLocation={'S3Object': {'Bucket': bucket, 'Name': key}},
+        FeatureTypes=['LAYOUT']
     )
     job_id = response['JobId']
-    
+
+    all_blocks = []
+    next_token = None
     while True:
-        result = textract.get_document_text_detection(JobId=job_id)
-        if result['JobStatus'] in ['SUCCEEDED', 'FAILED']:
-            break
-        time.sleep(3)
+        params = {'JobId': job_id}
+        if next_token:
+            params['NextToken'] = next_token
+        result = textract.get_document_analysis(**params)
+        if result['JobStatus'] == 'FAILED':
+            return None
+        if result['JobStatus'] == 'SUCCEEDED':
+            all_blocks.extend(result.get('Blocks', []))
+            next_token = result.get('NextToken')
+            if not next_token:
+                break
+        else:
+            time.sleep(3)
+    block_map = {bl['Id']: bl for bl in all_blocks}
+    for b in [b for b in all_blocks if b['BlockType'] in ('LAYOUT_TEXT', 'LAYOUT_SECTION_HEADER')]:
+        print(f"---{b['BlockType']}---")
+        child_ids = [r['Ids'] for r in b.get('Relationships', []) if r['Type'] == 'CHILD']
+        child_ids = [id for ids in child_ids for id in ids]
+        for cid in child_ids:
+            child = block_map.get(cid, {})
+            if child.get('BlockType') == 'LINE':
+                print(f"  {child.get('Text', '')}")
     
     if result['JobStatus'] == 'FAILED':
         return None
-    
+    exit()
     text = "\n".join([b['Text'] for b in result.get('Blocks', []) if b['BlockType'] == 'LINE'])
     print(f"  Extracted {len(text)} chars")
     return text
@@ -759,6 +780,8 @@ def run_pipeline(bucket, pdf_key):
         return {"error": "Textract failed"}
     
     # Stage 1: Extract invention (ReAct agent)
+    print(text)
+    exit()
     inventions = stage_1_extract_invention(text)
     if not inventions:
         return {"error": "No inventions found"}
