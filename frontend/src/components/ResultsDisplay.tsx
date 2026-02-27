@@ -93,7 +93,7 @@ export function ResultsDisplay({ report, progress, durationSeconds }: ResultsDis
                 </h4>
                 <div className="grid gap-4">
                   {group.patents.map((patent, i) => (
-                    <PatentCard key={patent.patent_number || i} patent={patent} />
+                    <PatentCard key={patent.patent_number || i} patent={patent} animationIndex={i} />
                   ))}
                 </div>
               </div>
@@ -106,6 +106,20 @@ export function ResultsDisplay({ report, progress, durationSeconds }: ResultsDis
         <p className="text-xs text-gray-400 text-center pt-2">
           Analysis completed in {formatDuration(durationSeconds)}
         </p>
+      )}
+
+      {report.run_metadata && (
+        <details className="text-center">
+          <summary className="text-xs text-gray-300 cursor-pointer hover:text-gray-400 select-none">
+            Run info
+          </summary>
+          <p className="text-xs text-gray-300 mt-1">
+            v{report.run_metadata.pipeline_version} &middot; {new Date(report.run_metadata.timestamp).toLocaleString()}
+          </p>
+          <p className="text-xs text-gray-300">
+            {Object.entries(report.run_metadata.models).map(([k, v]) => `${k}: ${v.split('.').pop()}`).join(' · ')}
+          </p>
+        </details>
       )}
     </div>
   );

@@ -314,6 +314,7 @@ For EACH patent, provide:
 3. Key similarities
 4. Key differences
 5. Brief analysis (2-3 sentences)
+6. Evidence snippet: a ≤15-word direct quote from the patent abstract that most strongly supports the relevance finding
 
 IMPORTANT: Return ONLY a JSON array with no other text. One object per patent in the same order.
 
@@ -326,7 +327,8 @@ Format:
     "classification": "relevant",
     "similarities": ["similarity 1", "similarity 2"],
     "differences": ["difference 1", "difference 2"],
-    "analysis": "Brief analysis..."
+    "analysis": "Brief analysis...",
+    "evidence_snippet": "direct quoted phrase from the patent abstract"
   }},
   ...
 ]

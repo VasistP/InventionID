@@ -121,7 +121,47 @@ def extract_abstract(html: str) -> Optional[str]:
 
 
 
-def test_scrape(url):
+def _fetch_abstract_crossref(doi: str) -> Optional[str]:
+    """Fetch abstract from Crossref API using DOI."""
+    url = f"https://api.crossref.org/works/{doi}"
+    try:
+        r = requests.get(url, timeout=15)
+        if not r.ok:
+            return None
+        data = r.json()
+        abstract = (data.get("message") or {}).get("abstract") or ""
+        abstract = abstract.strip()
+        if not abstract:
+            return None
+        # Crossref abstracts often contain JATS XML tags — strip them.
+        abstract = re.sub(r"<[^>]+>", " ", abstract)
+        abstract = re.sub(r"\s+", " ", abstract).strip()
+        return abstract if len(abstract) > 40 else None
+    except requests.RequestException:
+        return None
+
+
+def _fetch_abstract_ss_by_title(title: str) -> Optional[str]:
+    """Search Semantic Scholar by title and return the top result's abstract."""
+    if not title:
+        return None
+    url = "https://api.semanticscholar.org/graph/v1/paper/search"
+    params = {"query": title, "fields": "title,abstract", "limit": 1}
+    try:
+        r = requests.get(url, params=params, timeout=15)
+        if not r.ok:
+            return None
+        data = r.json()
+        results = data.get("data") or []
+        if not results:
+            return None
+        abstract = (results[0].get("abstract") or "").strip()
+        return abstract if len(abstract) > 40 else None
+    except requests.RequestException:
+        return None
+
+
+def test_scrape(url, title: Optional[str] = None):
     print("=" * 60)
     print(f"Testing URL: {url}")
     print("=" * 60)
@@ -180,21 +220,26 @@ def test_scrape(url):
         else:
             print("⚠️ Abstract not found in page HTML")
 
-    # Fallback: Semantic Scholar if DOI exists and local extraction failed
-    if doi:
-        if response.status_code != 200 or not abstract:
-            ss_url = f"https://api.semanticscholar.org/graph/v1/paper/DOI:{doi}"
-            params = {"fields": "title,abstract"}
-            try:
-                r = requests.get(ss_url, params=params, timeout=15)
-                data = r.json() if r.ok else {}
-                ss_abs = (data.get("abstract") or "").strip() if isinstance(data, dict) else ""
-                if ss_abs:
-                    print("✅ Abstract extracted from Semantic Scholar")
-                    print(f"Abstract Len: {len(ss_abs)}")
-                    # print("Abstract    :", ss_abs)
-            except requests.RequestException:
-                pass
+    # Fallback chain: Crossref (by DOI) → Semantic Scholar (by title)
+    if response.status_code != 200 or not abstract:
+        fallback_abstract = None
+
+        # 1) Crossref — requires DOI
+        if doi:
+            fallback_abstract = _fetch_abstract_crossref(doi)
+            if fallback_abstract:
+                print("✅ Abstract extracted from Crossref")
+                print(f"Abstract Len: {len(fallback_abstract)}")
+
+        # 2) Semantic Scholar — search by provided title
+        if not fallback_abstract:
+            fallback_abstract = _fetch_abstract_ss_by_title(title)
+            if fallback_abstract:
+                print("✅ Abstract extracted from Semantic Scholar (title search)")
+                print(f"Abstract Len: {len(fallback_abstract)}")
+
+        if not fallback_abstract:
+            print("⚠️ Abstract not found via any fallback")
 
 
 

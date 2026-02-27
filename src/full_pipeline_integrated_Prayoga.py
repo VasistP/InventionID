@@ -23,7 +23,7 @@ from prompt_templates import PromptTemplates, get_invention_description
 from invention_agent_cached import InventionExtractionAgentCached
 from invention_agent_rag import InventionExtractionAgentRAG
 from utils.rate_limiter import BedrockRateLimiter, CircuitBreaker, invoke_bedrock_with_retry
-from parallel_search import parallel_search_queries
+from parallel_search import parallel_search_queries, parallel_scholar_queries
 from textractChunkingv2_Prayoga import extract_text_from_s3_by_sections, normalize_textract_chunks
 from summarization import summarize_sections_parallel, add_embeddings_parallel
 
@@ -178,7 +178,7 @@ class PatentSearcher:
             time.sleep(self.delay)
             search = self.GoogleSearch(params)
             results = search.get_dict()
-            return self._parse_results(results, max_results)
+            return self._parse_results_paper(results, max_results)
         except Exception as e:
             print(f"    SerpAPI error: {e}")
             return []
@@ -192,24 +192,19 @@ class PatentSearcher:
     #     return patent_id
 
     def _parse_results_paper(self, data: dict, max_results: int) -> list:
-        patents = []
+        papers = []
         for result in data.get("organic_results", [])[:max_results]:
-            patent_id = result.get("patent_id", "")
-            patent_number = self._extract_patent_number(patent_id)
-            patent = {
-                "patent_number": patent_number,
-                "title": result.get("title", ""),
-                "url": f"https://patents.google.com/{patent_id}" if patent_id else "",
-                "abstract": result.get("snippet", ""),
-                "filing_date": result.get("filing_date", ""),
-                "publication_date": result.get("publication_date", ""),
-                "grant_date": result.get("grant_date", ""),
-                "inventors": result.get("inventor", ""),
-                "assignee": result.get("assignee", ""),
+            title = result.get("title", "")
+            if not title:
+                continue
+            paper = {
+                "title": title,
+                "url": result.get("link", ""),
+                "publication_info": result.get("publication_info", {}).get("summary", ""),
+                "abstract": "",  # fetched later by scrapper_2
             }
-            if patent_number:
-                patents.append(patent)
-        return patents
+            papers.append(paper)
+        return papers
 
     def get_paper_details(self, patent_number: str) -> dict:
         if not self.GoogleSearch:
@@ -470,6 +465,73 @@ def stage_4_fetch_details(patents, max_concurrent: int = 5):
     return detailed_patents
 
 
+def _fetch_scholar_paper_abstract(paper: dict) -> dict:
+    """Fetch abstract for a single Scholar paper using scrapper_2's fallback chain."""
+    import requests
+    from tools.scrapper_2 import (
+        extract_doi, extract_abstract,
+        _fetch_abstract_crossref, _fetch_abstract_ss_by_title,
+    )
+
+    url = paper.get("url", "")
+    title = paper.get("title", "")
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 Chrome/120.0 Safari/537.36"
+        )
+    }
+
+    doi = None
+    abstract = None
+
+    # 1) Try fetching the page directly
+    if url:
+        try:
+            r = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
+            if r.ok:
+                doi = extract_doi(r.url, r.text)
+                abstract = extract_abstract(r.text)
+        except requests.RequestException:
+            pass
+
+    # 2) Crossref fallback (needs DOI)
+    if not abstract and doi:
+        abstract = _fetch_abstract_crossref(doi)
+
+    # 3) Semantic Scholar by title
+    if not abstract:
+        abstract = _fetch_abstract_ss_by_title(title)
+
+    return {**paper, "abstract": abstract or "", "doi": doi or ""}
+
+
+def stage_4_fetch_scholar_details(papers: list, max_concurrent: int = 5) -> list:
+    """Stage 4 (papers): Fetch abstracts for Google Scholar results in parallel."""
+    print("\n" + "="*60)
+    print("STAGE 4 (PAPERS): FETCH SCHOLAR ABSTRACTS (parallel)")
+    print("="*60)
+
+    if not papers:
+        return []
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    results = []
+    with ThreadPoolExecutor(max_workers=max_concurrent) as executor:
+        future_to_paper = {
+            executor.submit(_fetch_scholar_paper_abstract, p): p for p in papers
+        }
+        for future in as_completed(future_to_paper):
+            result = future.result()
+            status = "✅" if result.get("abstract") else "⚠️"
+            print(f"  {status} {result.get('title', '')[:60]}")
+            results.append(result)
+
+    print(f"  Abstracts fetched: {sum(1 for r in results if r.get('abstract'))}/{len(results)}")
+    return results
+
+
 def stage_5_analyze_patents(invention, patents):
     """Stage 5: Analyze patents (using Opus)"""
     print("\n" + "="*60)
@@ -633,10 +695,21 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
         except Exception as e:
             print(f"  Stage 3 patent search failed: {e}")
         try:
-            arxiv_searcher = arx.ArxivPaperSearch(max_workers=5)
-            papers = arxiv_searcher.paper_search_parallel(queries)
+            seen_titles: set = set()
+            scholar_results = parallel_scholar_queries(
+                patent_searcher, queries,
+                max_results_per_query=5,
+                max_concurrent=max_concurrent,
+            )
+            for _, results in scholar_results:
+                for p in results:
+                    t = p.get("title", "").lower()
+                    if t and t not in seen_titles:
+                        seen_titles.add(t)
+                        papers.append(p)
+            print(f"  Google Scholar: {len(papers)} unique papers found")
         except Exception as e:
-            print(f"  Stage 3 arxiv search failed: {e}")
+            print(f"  Stage 3 scholar search failed: {e}")
 
         if not patents and not papers:
             print("  WARNING: No patents or papers found — skipping analysis stages")
@@ -649,9 +722,9 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
                 print(f"  Stage 4 patent details failed: {e}")
                 detailed = patents
             try:
-                detailed_arxiv = arx.filter_papers(papers)
+                detailed_arxiv = stage_4_fetch_scholar_details(papers)
             except Exception as e:
-                print(f"  Stage 4 paper filter failed: {e}")
+                print(f"  Stage 4 scholar detail fetch failed: {e}")
                 detailed_arxiv = papers
 
             # Stage 5: Analyze patents + arxiv papers

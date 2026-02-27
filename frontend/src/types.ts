@@ -8,6 +8,22 @@ export interface ProgressMessage {
   duration_seconds?: number;
 }
 
+export interface PatentabilityFacet {
+  facet_id: string;
+  facet_name: string;
+  score: number;
+  reasoning: string;
+  evidence_quote?: string;
+}
+
+export interface PatentabilityAssessment {
+  classification: string;
+  total_score: number;
+  facets_detail: PatentabilityFacet[];
+  justification: string;
+  recommendation: string;
+}
+
 export interface PatentAnalysis {
   patent_number: string;
   classification: string;
@@ -18,6 +34,7 @@ export interface PatentAnalysis {
   differences?: string[];
   analysis?: string;
   risk_level?: string;
+  evidence_snippet?: string;
 }
 
 export interface Patent {
@@ -40,6 +57,14 @@ export interface Invention {
   domain_classification: string;
   statutory_category: string;
   inventor_keywords: string[];
+  patentability_assessment?: PatentabilityAssessment;
+}
+
+export interface RunMetadata {
+  pipeline_version: string;
+  timestamp: string;
+  models: Record<string, string>;
+  retrieval_config: Record<string, number>;
 }
 
 export interface PipelineReport {
@@ -50,6 +75,7 @@ export interface PipelineReport {
   relevant: number;
   related: number;
   patents: Patent[];
+  run_metadata?: RunMetadata;
 }
 
 export interface AnalysisSession {

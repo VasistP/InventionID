@@ -859,10 +859,16 @@ class InventionExtractionAgentCached:
             pat_summary = {
                 "classification": patentability.get("classification"),
                 "total_score": patentability.get("total_score"),
-                "facets": {
-                    f.get("facet_id"): f.get("score")
+                "facets_detail": [
+                    {
+                        "facet_id": f.get("facet_id"),
+                        "facet_name": f.get("facet_name"),
+                        "score": f.get("score"),
+                        "reasoning": f.get("reasoning", ""),
+                        "evidence_quote": f.get("evidence_quote", ""),
+                    }
                     for f in patentability.get("facets", [])
-                },
+                ],
                 "justification": patentability.get("justification"),
                 "recommendation": patentability.get("recommendation"),
             }

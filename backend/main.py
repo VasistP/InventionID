@@ -3,9 +3,12 @@ import asyncio
 import json
 import threading
 import time
+import os
 import boto3
 from fastapi import FastAPI, UploadFile, File, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from config import S3_BUCKET, S3_INPUT_PREFIX, S3_RESULTS_PREFIX, ALLOWED_ORIGINS, MAX_UPLOAD_SIZE_MB
 from pipeline_runner import run_pipeline_with_progress, PipelineAlreadyRunningError, _pipeline_lock
@@ -139,7 +142,18 @@ async def pipeline_websocket(websocket: WebSocket, s3_key: str):
         while True:
             msg = await progress_queue.get()
             await websocket.send_json(msg)
-            if msg.get("status") in ("completed", "error"):
+            if msg.get("status") == "error" or (msg.get("status") == "completed" and msg.get("stage") == 7):
                 break
     except WebSocketDisconnect:
         pass  # Client disconnected; pipeline continues in background
+
+
+# ── Static Frontend ─────────────────────────────────────────
+_DIST = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+if os.path.isdir(_DIST):
+    app.mount("/assets", StaticFiles(directory=os.path.join(_DIST, "assets")), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str):
+        """Serve the React SPA for any non-API route."""
+        return FileResponse(os.path.join(_DIST, "index.html"))

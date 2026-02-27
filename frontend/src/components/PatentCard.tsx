@@ -3,6 +3,7 @@ import type { Patent } from '../types';
 
 interface PatentCardProps {
   patent: Patent;
+  animationIndex?: number;
 }
 
 const classificationColors: Record<string, string> = {
@@ -11,7 +12,7 @@ const classificationColors: Record<string, string> = {
   related: 'bg-blue-100 text-blue-700 border-blue-200',
 };
 
-export function PatentCard({ patent }: PatentCardProps) {
+export function PatentCard({ patent, animationIndex = 0 }: PatentCardProps) {
   const [expanded, setExpanded] = useState(false);
   const analysis = patent.analysis;
   const classification = analysis?.classification ?? 'unknown';
@@ -20,11 +21,15 @@ export function PatentCard({ patent }: PatentCardProps) {
   const similarities = analysis?.similarities ?? analysis?.overlap_areas ?? [];
   const differences = analysis?.differences ?? analysis?.key_differences ?? [];
   const analysisText = analysis?.analysis;
+  const evidenceSnippet = analysis?.evidence_snippet;
 
   const hasDetails = similarities.length > 0 || differences.length > 0 || !!analysisText;
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5">
+    <div
+      className="bg-white rounded-lg border border-gray-200 shadow-sm p-5 animate-fade-in-up"
+      style={{ animationDelay: `${animationIndex * 60}ms`, animationFillMode: 'both' }}
+    >
       <div className="flex items-start justify-between gap-3 mb-2">
         <div>
           <h3 className="font-medium text-gray-800 text-sm leading-snug">
@@ -89,6 +94,11 @@ export function PatentCard({ patent }: PatentCardProps) {
                           </li>
                         ))}
                       </ul>
+                      {evidenceSnippet && (
+                        <blockquote className="mt-2 border-l-2 border-gray-300 pl-2 text-xs text-gray-400 italic">
+                          &ldquo;{evidenceSnippet}&rdquo;
+                        </blockquote>
+                      )}
                     </div>
                   )}
 

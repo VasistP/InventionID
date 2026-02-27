@@ -1,4 +1,5 @@
 import type { PipelineReport } from '../types';
+import { InventionRationale } from './InventionRationale';
 
 interface SummaryHeaderProps {
   report: PipelineReport;
@@ -35,6 +36,12 @@ export function SummaryHeader({ report }: SummaryHeaderProps) {
               <li key={i}>{f}</li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {invention.patentability_assessment && (
+        <div className="mb-4">
+          <InventionRationale assessment={invention.patentability_assessment} />
         </div>
       )}
 

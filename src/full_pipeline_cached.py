@@ -20,13 +20,15 @@ from invention_agent_cached import InventionExtractionAgentCached
 from utils.parallel_search import parallel_search_queries
 from utils.rate_limiter import BedrockRateLimiter, CircuitBreaker, invoke_bedrock_with_retry
 from textractChunkingv2 import extract_text_from_s3_by_sections, normalize_textract_chunks
+from pipeline_config import (
+    MODEL_EXTRACTION, MODEL_QUERY_GEN, MODEL_ANALYSIS,
+    NUM_SEARCH_QUERIES, MAX_RESULTS_PER_QUERY, MAX_SEARCH_CONCURRENT, SERPAPI_DELAY,
+    MAX_PATENTS_TO_FETCH, MAX_PATENTS_TO_ANALYZE,
+    AGENT_MAX_ITERATIONS,
+    BEDROCK_MIN_INTERVAL, CIRCUIT_BREAKER_FAILURE_THRESHOLD, CIRCUIT_BREAKER_RECOVERY_TIMEOUT,
+)
 
 BUCKET = "patent-pdf-input-786827631714"
-
-# Model IDs
-MODEL_SONNET = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"  # For agent
-# MODEL_OPUS = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
-MODEL_OPUS = "us.anthropic.claude-opus-4-20250514-v1:0"        # For analysis
 
 # Lazy-initialized components (populated by _init_components())
 bedrock: "boto3.client" = None  # type: ignore[assignment]
@@ -50,11 +52,11 @@ def _init_components():
     if not serpapi_key:
         print("WARNING: SERPAPI_KEY not set. Set with: export SERPAPI_KEY='your_key'")
 
-    patent_searcher = PatentSearcher(api_key=serpapi_key, delay=0.5)
-    rate_limiter = BedrockRateLimiter(min_interval=2.0)
-    circuit_breaker = CircuitBreaker(failure_threshold=5, recovery_timeout=60.0)
+    patent_searcher = PatentSearcher(api_key=serpapi_key, delay=SERPAPI_DELAY)
+    rate_limiter = BedrockRateLimiter(min_interval=BEDROCK_MIN_INTERVAL)
+    circuit_breaker = CircuitBreaker(failure_threshold=CIRCUIT_BREAKER_FAILURE_THRESHOLD, recovery_timeout=CIRCUIT_BREAKER_RECOVERY_TIMEOUT)
     invention_agent = InventionExtractionAgentCached(
-        bedrock, MODEL_OPUS, max_iterations=4,
+        bedrock, MODEL_EXTRACTION, max_iterations=AGENT_MAX_ITERATIONS,
         rate_limiter=rate_limiter, circuit_breaker=circuit_breaker,
     )
     _initialized = True
@@ -180,7 +182,7 @@ def parse_json(text):
     return None
 
 
-def call_bedrock_json(prompt, max_tokens=4000, model_id=MODEL_OPUS, max_parse_retries=3):
+def call_bedrock_json(prompt, max_tokens=4000, model_id=MODEL_ANALYSIS, max_parse_retries=3):
     """
     Call Bedrock and parse the response as JSON.
 
@@ -250,9 +252,10 @@ def stage_1_extract_invention(sections):
 
     if result["success"]:
         invention = result["invention"]
-        return {"1": invention}, log_file
+        patentability = result.get("patentability")
+        return {"1": invention}, log_file, patentability
 
-    return None, log_file
+    return None, log_file, None
 
 
 def stage_2_generate_queries(invention):
@@ -261,8 +264,8 @@ def stage_2_generate_queries(invention):
     print("STAGE 2: GENERATE SEARCH QUERIES")
     print("="*60)
 
-    prompt = PromptTemplates.generate_search_queries(invention, num_queries=10)
-    queries = call_bedrock_json(prompt, max_tokens=500, model_id=MODEL_SONNET)
+    prompt = PromptTemplates.generate_search_queries(invention, num_queries=NUM_SEARCH_QUERIES)
+    queries = call_bedrock_json(prompt, max_tokens=500, model_id=MODEL_QUERY_GEN)
 
     if queries:
         print(f"  Generated {len(queries)} queries:")
@@ -272,7 +275,7 @@ def stage_2_generate_queries(invention):
     return queries or []
 
 
-def stage_3_search_patents(queries, max_concurrent: int = 5):
+def stage_3_search_patents(queries, max_concurrent: int = MAX_SEARCH_CONCURRENT):
     """Stage 3: Search patents via SerpAPI (parallel)."""
     print("\n" + "="*60)
     print("STAGE 3: PATENT SEARCH (SerpAPI, parallel)")
@@ -285,7 +288,7 @@ def stage_3_search_patents(queries, max_concurrent: int = 5):
     results_by_query = parallel_search_queries(
         patent_searcher,
         target_queries,
-        max_results_per_query=5,
+        max_results_per_query=MAX_RESULTS_PER_QUERY,
         max_concurrent=max_concurrent,
     )
 
@@ -301,7 +304,7 @@ def stage_3_search_patents(queries, max_concurrent: int = 5):
     return all_patents
 
 
-def stage_4_fetch_details(patents, max_concurrent: int = 5):
+def stage_4_fetch_details(patents, max_concurrent: int = MAX_SEARCH_CONCURRENT):
     """Stage 4: Fetch patent details (parallel)"""
     print("\n" + "="*60)
     print("STAGE 4: FETCH PATENT DETAILS (parallel)")
@@ -312,7 +315,7 @@ def stage_4_fetch_details(patents, max_concurrent: int = 5):
 
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    candidates = patents[:10]
+    candidates = patents[:MAX_PATENTS_TO_FETCH]
     cached = []
     to_fetch = []
 
@@ -365,8 +368,8 @@ def stage_5_analyze_patents(invention, patents):
         return []
 
     inv_desc = get_invention_description(invention)
-    prompt = PromptTemplates.analyze_patents_batch(inv_desc, patents[:5])
-    analysis = call_bedrock_json(prompt, max_tokens=3000, model_id=MODEL_OPUS)
+    prompt = PromptTemplates.analyze_patents_batch(inv_desc, patents[:MAX_PATENTS_TO_ANALYZE])
+    analysis = call_bedrock_json(prompt, max_tokens=3000, model_id=MODEL_ANALYSIS)
 
     if analysis:
         print(f"  Analyzed {len(analysis)} patents:")
@@ -376,7 +379,7 @@ def stage_5_analyze_patents(invention, patents):
     return analysis or []
 
 
-def stage_6_generate_report(invention, patents, analysis):
+def stage_6_generate_report(invention, patents, analysis, patentability=None):
     """Stage 6: Generate final report"""
     print("\n" + "="*60)
     print("STAGE 6: FINAL REPORT")
@@ -392,8 +395,20 @@ def stage_6_generate_report(invention, patents, analysis):
             result['analysis'] = analysis_map[num]
         results.append(result)
 
+    # Sort by classification priority then relevance_score descending
+    _CLASSIFICATION_ORDER = {"blocking": 0, "relevant": 1, "related": 2}
+    results.sort(key=lambda p: (
+        _CLASSIFICATION_ORDER.get(p.get("analysis", {}).get("classification", "other"), 3),
+        -(p.get("analysis", {}).get("relevance_score", 0))
+    ))
+
+    # Embed patentability assessment into invention
+    invention_out = {**invention}
+    if patentability:
+        invention_out["patentability_assessment"] = patentability
+
     report = {
-        "invention": invention,
+        "invention": invention_out,
         "patents_found": len(patents),
         "patents_analyzed": len(analysis),
         "blocking": len([a for a in analysis if a.get('classification') == 'blocking']),
@@ -469,7 +484,7 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
 
     # Stage 1: Extract invention (cached ReAct agent — section-wise chunks)
     _emit(1, "Extracting invention details", detail=f"{len(sections)} sections")
-    inventions, agent_log_file = stage_1_extract_invention(sections)
+    inventions, agent_log_file, patentability = stage_1_extract_invention(sections)
     if not inventions:
         _emit(-1, "No inventions found", status="error", error="No inventions found")
         return {"error": "No inventions found"}
@@ -522,7 +537,23 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
 
     # Stage 6: Report (always runs — produces partial report with whatever we have)
     _emit(6, "Generating final report")
-    report = stage_6_generate_report(invention, detailed or patents, analysis)
+    report = stage_6_generate_report(invention, detailed or patents, analysis, patentability=patentability)
+
+    # Attach run metadata
+    report["run_metadata"] = {
+        "pipeline_version": "1.0.0",
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "models": {
+            "extraction": MODEL_EXTRACTION,
+            "query_generation": MODEL_QUERY_GEN,
+            "patent_analysis": MODEL_ANALYSIS,
+        },
+        "retrieval_config": {
+            "max_patents_fetched": MAX_PATENTS_TO_FETCH,
+            "max_patents_analyzed": MAX_PATENTS_TO_ANALYZE,
+            "max_search_queries": NUM_SEARCH_QUERIES,
+        },
+    }
 
     # Save to S3
     output_key = pdf_key.replace('input/', 'results/').replace('.pdf', '_report.json')

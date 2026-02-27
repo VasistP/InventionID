@@ -28,7 +28,7 @@ export default function App() {
         )}
 
         {showProgress && (
-          <div className="max-w-2xl mx-auto mt-12">
+          <div className="max-w-2xl mx-auto mt-12 space-y-6">
             <ProgressTracker progress={activeSession.progress} />
           </div>
         )}
