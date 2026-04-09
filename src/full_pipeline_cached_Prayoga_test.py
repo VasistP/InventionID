@@ -17,7 +17,7 @@ import os
 from datetime import datetime
 from prompt_templates import PromptTemplates, get_invention_description
 from invention_agent_cached import InventionExtractionAgentCached
-from utils.parallel_search import parallel_search_queries, parallel_scholar_queries
+from utils.parallel_search import parallel_search_queries
 from utils.rate_limiter import BedrockRateLimiter, CircuitBreaker, invoke_bedrock_with_retry
 from textractChunkingv2 import extract_text_from_s3_by_sections, normalize_textract_chunks
 from pipeline_config import (
@@ -87,7 +87,6 @@ class PatentSearcher:
                 "engine": "google_patents",
                 "q": query,
                 "api_key": self.api_key,
-                "before": "publication:20220101"
             }
             time.sleep(self.delay)
             search = self.GoogleSearch(params)
@@ -156,39 +155,6 @@ class PatentSearcher:
         except Exception as e:
             print(f"    SerpAPI error for {patent_number}: {e}")
             return {"patent_number": patent_number, "error": str(e)}
-
-    def search_scholar(self, query: str, max_results: int = 10) -> list:
-        if not self.GoogleSearch:
-            return []
-        try:
-            params = {
-                "engine": "google_scholar",
-                "q": query,
-                "api_key": self.api_key,
-                "as_yhi": "2022"
-            }
-            time.sleep(self.delay)
-            search = self.GoogleSearch(params)
-            results = search.get_dict()
-            return self._parse_results_paper(results, max_results)
-        except Exception as e:
-            print(f"    SerpAPI error: {e}")
-            return []
-
-    def _parse_results_paper(self, data: dict, max_results: int) -> list:
-        papers = []
-        for result in data.get("organic_results", [])[:max_results]:
-            title = result.get("title", "")
-            if not title:
-                continue
-            paper = {
-                "title": title,
-                "url": result.get("link", ""),
-                "publication_info": result.get("publication_info", {}).get("summary", ""),
-                "abstract": "",  # fetched later by scrapper_2
-            }
-            papers.append(paper)
-        return papers
 
 
 # ============================================================
@@ -298,6 +264,7 @@ def stage_2_generate_queries(invention):
     print("="*60)
 
     prompt = PromptTemplates.generate_search_queries(invention, num_queries=NUM_SEARCH_QUERIES)
+    print(prompt)
     queries = call_bedrock_json(prompt, max_tokens=500, model_id=MODEL_QUERY_GEN)
 
     if queries:
@@ -335,34 +302,6 @@ def stage_3_search_patents(queries, max_concurrent: int = MAX_SEARCH_CONCURRENT)
 
     print(f"  Total unique patents: {len(all_patents)}")
     return all_patents
-
-
-def stage_3_search_scholar(queries, max_concurrent: int = MAX_SEARCH_CONCURRENT):
-    """Stage 3: Search Google Scholar via SerpAPI (parallel)."""
-    print("\n" + "="*60)
-    print("STAGE 3: SCHOLAR SEARCH (SerpAPI, parallel)")
-    print("="*60)
-
-    all_papers = []
-    seen_titles: set = set()
-
-    results_by_query = parallel_scholar_queries(
-        patent_searcher,
-        queries,
-        max_results_per_query=5,
-        max_concurrent=max_concurrent,
-    )
-
-    for query, results in results_by_query:
-        print(f"  Merging results for: {query!r}")
-        for p in results:
-            t = p.get("title", "").lower()
-            if t and t not in seen_titles:
-                seen_titles.add(t)
-                all_papers.append(p)
-
-    print(f"  Total unique papers: {len(all_papers)}")
-    return all_papers
 
 
 def stage_4_fetch_details(patents, max_concurrent: int = MAX_SEARCH_CONCURRENT):
@@ -419,73 +358,6 @@ def stage_4_fetch_details(patents, max_concurrent: int = MAX_SEARCH_CONCURRENT):
     return detailed_patents
 
 
-def _fetch_scholar_paper_abstract(paper: dict) -> dict:
-    """Fetch abstract for a single Scholar paper using scrapper_2's fallback chain."""
-    import requests
-    from tools.scrapper_2 import (
-        extract_doi, extract_abstract,
-        _fetch_abstract_crossref, _fetch_abstract_ss_by_title,
-    )
-
-    url = paper.get("url", "")
-    title = paper.get("title", "")
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 Chrome/120.0 Safari/537.36"
-        )
-    }
-
-    doi = None
-    abstract = None
-
-    # 1) Try fetching the page directly
-    if url:
-        try:
-            r = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
-            if r.ok:
-                doi = extract_doi(r.url, r.text)
-                abstract = extract_abstract(r.text)
-        except requests.RequestException:
-            pass
-
-    # 2) Crossref fallback (needs DOI)
-    if not abstract and doi:
-        abstract = _fetch_abstract_crossref(doi)
-
-    # 3) Semantic Scholar by title
-    if not abstract:
-        abstract = _fetch_abstract_ss_by_title(title)
-
-    return {**paper, "abstract": abstract or "", "doi": doi or ""}
-
-
-def stage_4_fetch_scholar_details(papers: list, max_concurrent: int = MAX_SEARCH_CONCURRENT) -> list:
-    """Stage 4 (papers): Fetch abstracts for Google Scholar results in parallel."""
-    print("\n" + "="*60)
-    print("STAGE 4 (PAPERS): FETCH SCHOLAR ABSTRACTS (parallel)")
-    print("="*60)
-
-    if not papers:
-        return []
-
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-
-    results = []
-    with ThreadPoolExecutor(max_workers=max_concurrent) as executor:
-        future_to_paper = {
-            executor.submit(_fetch_scholar_paper_abstract, p): p for p in papers
-        }
-        for future in as_completed(future_to_paper):
-            result = future.result()
-            status = "OK" if result.get("abstract") else "NO ABSTRACT"
-            print(f"  [{status}] {result.get('title', '')[:60]}")
-            results.append(result)
-
-    print(f"  Abstracts fetched: {sum(1 for r in results if r.get('abstract'))}/{len(results)}")
-    return results
-
-
 def stage_5_analyze_patents(invention, patents):
     """Stage 5: Analyze patents (using Opus)"""
     print("\n" + "="*60)
@@ -507,64 +379,12 @@ def stage_5_analyze_patents(invention, patents):
     return analysis or []
 
 
-def stage_5_analyze_scholar_papers(invention, papers):
-    """Stage 5 (papers): Analyze Google Scholar papers for prior art relevance (using Opus)."""
-    print("\n" + "="*60)
-    print("STAGE 5 (PAPERS): SCHOLAR PAPER ANALYSIS (Opus)")
-    print("="*60)
-
-    if not papers:
-        return []
-
-    inv_desc = get_invention_description(invention)
-
-    papers_text = "\n".join(
-        f"\nPaper {i}:\n"
-        f"Title: {p.get('title', 'N/A')}\n"
-        f"Publication Info: {p.get('publication_info', 'N/A')}\n"
-        f"Abstract: {p.get('abstract', 'N/A')}..."
-        for i, p in enumerate(papers[:5], 1)
-    )
-
-    prompt = f"""Analyze these academic papers' relevance to the invention as prior art.
-
-INVENTION:
-{inv_desc}
-
-PAPERS TO ANALYZE:
-{papers_text}
-
-For EACH paper, provide:
-1. Relevance score (0.0 to 1.0)
-2. Classification: "blocking" (very similar, published before), "relevant" (overlapping techniques), or "related" (same domain but different approach)
-3. Key similarities
-4. Key differences
-5. Brief analysis (2-3 sentences)
-
-IMPORTANT: Return ONLY a JSON array with no other text. One object per paper in the same order.
-Keys per object: "title", "relevance_score", "classification", "similarities", "differences", "analysis"
-"""
-
-    analysis = call_bedrock_json(prompt, max_tokens=3000, model_id=MODEL_ANALYSIS)
-
-    if analysis:
-        print(f"  Analyzed {len(analysis)} papers:")
-        for a in analysis:
-            print(f"    {a.get('title', '')[:60]}: {a.get('classification')} ({a.get('relevance_score')})")
-
-    return analysis or []
-
-
-def stage_6_generate_report(invention, patents, analysis, patentability=None, detailed_papers=None, analysis_papers=None):
+def stage_6_generate_report(invention, patents, analysis, patentability=None):
     """Stage 6: Generate final report"""
     print("\n" + "="*60)
     print("STAGE 6: FINAL REPORT")
     print("="*60)
 
-    detailed_papers = detailed_papers or []
-    analysis_papers = analysis_papers or []
-
-    # --- Patents ---
     analysis_map = {a['patent_number']: a for a in analysis if a.get('patent_number')}
 
     results = []
@@ -582,15 +402,6 @@ def stage_6_generate_report(invention, patents, analysis, patentability=None, de
         -(p.get("analysis", {}).get("relevance_score", 0))
     ))
 
-    # --- Scholar papers ---
-    paper_analysis_map = {a['title']: a for a in analysis_papers if a.get('title')}
-    paper_results = []
-    for p in detailed_papers:
-        result = {**p}
-        if p.get('title', '') in paper_analysis_map:
-            result['analysis'] = paper_analysis_map[p['title']]
-        paper_results.append(result)
-
     # Embed patentability assessment into invention
     invention_out = {**invention}
     if patentability:
@@ -603,10 +414,7 @@ def stage_6_generate_report(invention, patents, analysis, patentability=None, de
         "blocking": len([a for a in analysis if a.get('classification') == 'blocking']),
         "relevant": len([a for a in analysis if a.get('classification') == 'relevant']),
         "related": len([a for a in analysis if a.get('classification') == 'related']),
-        "patents": results,
-        "scholar_papers_found": len(detailed_papers),
-        "scholar_papers_analyzed": len(analysis_papers),
-        "scholar_papers": paper_results,
+        "patents": results
     }
 
     print(f"  Summary:")
@@ -614,8 +422,6 @@ def stage_6_generate_report(invention, patents, analysis, patentability=None, de
     print(f"    Blocking: {report['blocking']}")
     print(f"    Relevant: {report['relevant']}")
     print(f"    Related: {report['related']}")
-    print(f"    Scholar papers found: {report['scholar_papers_found']}")
-    print(f"    Scholar papers analyzed: {report['scholar_papers_analyzed']}")
 
     return report
 
@@ -666,6 +472,7 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
     # Extract text as section-wise chunks using Textract Layout
     _emit(0, "Extracting text from PDF")
     print("  Starting Textract Layout extraction (section-wise)...")
+    _t0 = time.time()
     chunks = extract_text_from_s3_by_sections(bucket, pdf_key)
     if not chunks:
         _emit(-1, "Textract extraction failed", status="error", error="Textract Layout extraction failed")
@@ -679,6 +486,8 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
     # Stage 1: Extract invention (cached ReAct agent — section-wise chunks)
     _emit(1, "Extracting invention details", detail=f"{len(sections)} sections")
     inventions, agent_log_file, patentability = stage_1_extract_invention(sections)
+    print(f"  [TIMER] Stage 1 elapsed: {time.time() - _t0:.1f}s")
+
     if not inventions:
         _emit(-1, "No inventions found", status="error", error="No inventions found")
         return {"error": "No inventions found"}
@@ -689,9 +498,6 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
     patents = []
     detailed = []
     analysis = []
-    papers = []
-    detailed_papers = []
-    analysis_arxiv = []
 
     # Stage 2: Generate queries
     _emit(2, "Generating search queries")
@@ -705,58 +511,38 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
     if not queries:
         print("  WARNING: No search queries generated — skipping patent search stages")
     else:
-        # Stage 3: Search patents + scholar papers
-        _emit(3, "Searching patents and papers", detail=f"{len(queries)} queries")
+        exit()
+        # Stage 3: Search patents
+        _emit(3, "Searching patents", detail=f"{len(queries)} queries")
         try:
             patents = stage_3_search_patents(queries)
         except Exception as e:
-            print(f"  Stage 3 patent search failed: {e}")
-        try:
-            papers = stage_3_search_scholar(queries)
-        except Exception as e:
-            print(f"  Stage 3 scholar search failed: {e}")
+            print(f"  Stage 3 failed: {e}")
 
-        if not patents and not papers:
-            print("  WARNING: No patents or papers found — skipping analysis stages")
+        if not patents:
+            print("  WARNING: No patents found — skipping analysis stages")
         else:
-            # Stage 4: Fetch patent details + scholar abstracts
-            _emit(4, "Fetching details", detail=f"{len(patents)} patents, {len(papers)} papers")
+            # Stage 4: Fetch details
+            # exit()
+            _emit(4, "Fetching patent details", detail=f"{len(patents)} patents")
             try:
                 detailed = stage_4_fetch_details(patents)
             except Exception as e:
-                print(f"  Stage 4 patent details failed: {e}")
+                print(f"  Stage 4 failed: {e}")
                 detailed = patents  # fall back to basic patent info
-            try:
-                detailed_papers = stage_4_fetch_scholar_details(papers)
-            except Exception as e:
-                print(f"  Stage 4 scholar detail fetch failed: {e}")
-                detailed_papers = papers
 
-            # Stage 5: Analyze patents + scholar papers
-            _emit(5, "Analyzing prior art", detail=f"{len(detailed)} patents, {len(detailed_papers)} papers")
+            # Stage 5: Analyze
+            _emit(5, "Analyzing patents", detail=f"{len(detailed)} patents")
             try:
                 analysis = stage_5_analyze_patents(invention, detailed)
             except JsonParseExhaustedError:
                 raise  # let pipeline retry wrapper handle it
             except Exception as e:
-                print(f"  Stage 5 patent analysis failed: {e}")
-            try:
-                analysis_arxiv = stage_5_analyze_scholar_papers(invention, detailed_papers)
-            except JsonParseExhaustedError:
-                raise
-            except Exception as e:
-                print(f"  Stage 5 paper analysis failed: {e}")
+                print(f"  Stage 5 failed: {e}")
 
     # Stage 6: Report (always runs — produces partial report with whatever we have)
     _emit(6, "Generating final report")
-    report = stage_6_generate_report(
-        invention,
-        detailed or patents,
-        analysis,
-        patentability=patentability,
-        detailed_papers=detailed_papers,
-        analysis_papers=analysis_arxiv,
-    )
+    report = stage_6_generate_report(invention, detailed or patents, analysis, patentability=patentability)
 
     # Attach run metadata
     report["run_metadata"] = {

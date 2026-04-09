@@ -1,0 +1,51 @@
+{
+  "enabled": true,
+  "run_after_phase": "extract",
+
+  "early_stop_on_not_patentable": false,
+  "force_refine_on_borderline": true,
+
+  "guardrails": {
+    "facet_a_zero_stops": true,
+    "facet_b_zero_stops": true
+  },
+
+  "classification_thresholds": {
+    "scientific_discovery": {"min": 0, "max": 2},
+    "borderline_case": {"min": 3, "max": 4},
+    "potential_invention": {"min": 5, "max": 6}
+  },
+
+  "facets": {
+    "A": {
+      "name": "Nature of the Described Innovation",
+      "description": "Determine what type of invention is described (method/process, system/apparatus, manufactured product/tool, or composition/material). Ask: (1) What kind of thing is being presented — a method or process, system or apparatus, manufactured product or tool, or composition or material? (2) What specific features, functions, or relationships in the research description indicate this classification? (3) Which part of the paper’s approach or design demonstrates how it operates or what it is made of? (4) Why does the described work fit best as a method, system, product, or composition? IMPORTANT: Generic descriptions like ‘a deep learning model’, ‘a transformer-based approach’, or ‘a pipeline’ do NOT qualify for a score of 2 unless the specific architecture, mechanism, or process steps are uniquely defined and non-trivially different from standard practice.",
+      "scoring": {
+        "0": "No identifiable inventive element; only discusses ideas, observations, or correlations without describing a concrete process, system, product, or material. Includes purely theoretical or analytical studies.",
+        "1": "Mentions a ‘framework’, ‘approach’, ‘model’, or ‘system’ but relies on standard off-the-shelf components assembled in a routine way, OR does not clearly specify how the described process or system actually operates at an implementation level.",
+        "2": "Explicitly defines a novel and specific process, system, product, or composition with unique operational details — NOT achievable by routine combination of existing tools or standard methods. The specific mechanism, architecture, or process steps must be clearly described and non-obvious to a practitioner skilled in the art."
+      }
+    },
+
+    "B": {
+      "name": "Conceptual Foundation or Possible Judicial Exception",
+      "description": "Evaluate whether the contribution is primarily a conceptual principle rather than a concrete technical implementation. Ask: (1) Does the paper’s main contribution rely primarily on a conceptual principle, mathematical model, natural law, or natural phenomenon? (2) Could the same concept, relationship, or behavior be carried out on generic commercial hardware and standard software libraries (e.g., PyTorch, scikit-learn, standard APIs) without introducing any new computational mechanism, architecture, or specialized system? (3) Is the described mechanism genuinely new, or is it a standard technique (e.g., fine-tuning a pretrained model, applying known statistical methods, using off-the-shelf hardware) applied to a new domain or dataset? Applying a known technique to a new domain does NOT qualify as a new mechanism.",
+      "scoring": {
+        "0": "Pure idea, theorem, theory, or natural phenomenon; no defined implementation mechanism or architecture. Includes papers that only describe correlations, discoveries, or mathematical formulations without any engineered system.",
+        "1": "Describes some algorithmic steps, schematic, or process, BUT the described mechanism is either (a) a routine application of a well-known technique to a new domain/dataset, (b) implementable directly using standard libraries and generic hardware without modification, or (c) not sufficiently specified to be reproducible without significant design decisions left to the implementer.",
+        "2": "Fully specifies a genuinely novel mechanism — one that cannot be replicated by simply configuring existing tools or standard libraries. Must include unique architectural decisions, custom operational steps, or specialized hardware/material interactions that go beyond routine engineering skill. Reproducibility alone is insufficient; the mechanism itself must be inventive."
+      }
+    },
+
+    "C": {
+      "name": "Practical Application or Technical Integration",
+      "description": "Assess whether the conceptual idea is transformed into a concrete, measurable technical implementation with demonstrated advantage. Ask: (1) What specific mechanisms transform the conceptual idea into a real-world implementation? (2) Is there a clear, objective comparison against a meaningful prior-art baseline — not just an ablation or internal comparison? (3) Could the observed improvement plausibly result from standard hyperparameter tuning, dataset scaling, or routine optimization rather than the claimed novel mechanism? (4) Is the improvement substantial and unlikely to be matched by a skilled practitioner applying known techniques?",
+      "scoring": {
+        "0": "No measurable technical output or empirical test; results are qualitative, speculative, or unverified. Includes papers that only show proof-of-concept without quantitative evaluation.",
+        "1": "Includes quantitative metrics but the comparison is weak: no meaningful prior-art baseline, only internal ablations, improvement is marginal or within noise, or the gain is plausibly attributable to standard tuning rather than the novel mechanism.",
+        "2": "Demonstrates a clear, substantial, and reproducible improvement over a recognized prior-art baseline using objective metrics — AND the improvement is directly attributable to the specific novel mechanism described, not to scale, data, or standard optimization. Marginal or dataset-specific improvements do NOT qualify."
+      }
+    }
+  }
+}
+

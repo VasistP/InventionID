@@ -45,13 +45,23 @@ export function SummaryHeader({ report }: SummaryHeaderProps) {
         </div>
       )}
 
-      <div className="flex items-center gap-6 pt-4 border-t border-gray-100">
+      <div className="flex flex-wrap items-center gap-6 pt-4 border-t border-gray-100">
         <div className="text-sm text-gray-500">
-          <span className="font-medium text-gray-700">{patents_found}</span> found
+          <span className="font-medium text-gray-700">{patents_found}</span> patents found
         </div>
         <div className="text-sm text-gray-500">
-          <span className="font-medium text-gray-700">{patents_analyzed}</span> analyzed
+          <span className="font-medium text-gray-700">{patents_analyzed}</span> patents analyzed
         </div>
+        {(report.scholar_papers_found ?? 0) > 0 && (
+          <div className="text-sm text-gray-500">
+            <span className="font-medium text-gray-700">{report.scholar_papers_found}</span> papers found
+          </div>
+        )}
+        {(report.scholar_papers_analyzed ?? 0) > 0 && (
+          <div className="text-sm text-gray-500">
+            <span className="font-medium text-gray-700">{report.scholar_papers_analyzed}</span> papers analyzed
+          </div>
+        )}
         <div className="flex gap-2">
           {blocking > 0 && <Badge label="blocking" count={blocking} color="bg-red-100 text-red-700" />}
           {relevant > 0 && <Badge label="relevant" count={relevant} color="bg-yellow-100 text-yellow-700" />}

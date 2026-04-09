@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-import type { PipelineReport, Patent, ProgressMessage } from '../types';
+import type { PipelineReport, Patent, ScholarPaper, ProgressMessage } from '../types';
 import { SummaryHeader } from './SummaryHeader';
 import { PatentCard } from './PatentCard';
+import { PaperCard } from './PaperCard';
 import { ProgressTracker } from './ProgressTracker';
 
 interface ResultsDisplayProps {
@@ -29,6 +30,34 @@ export function ResultsDisplay({ report, progress, durationSeconds }: ResultsDis
   const handleDownloadPdf = () => {
     window.print();
   };
+
+  const paperGroups = useMemo(() => {
+    const papers = report.scholar_papers ?? [];
+    const byClass: Record<string, ScholarPaper[]> = {};
+    for (const p of papers) {
+      const cls = p.analysis?.classification ?? 'other';
+      (byClass[cls] ??= []).push(p);
+    }
+    for (const papers of Object.values(byClass)) {
+      papers.sort((a, b) =>
+        (b.analysis?.relevance_score ?? 0) - (a.analysis?.relevance_score ?? 0)
+      );
+    }
+    const result: { key: string; label: string; color: string; papers: ScholarPaper[] }[] = [];
+    for (const cls of GROUP_ORDER) {
+      if (byClass[cls]?.length) {
+        const style = groupStyles[cls];
+        result.push({ key: cls, label: style.label, color: style.color, papers: byClass[cls] });
+        delete byClass[cls];
+      }
+    }
+    for (const [cls, papers] of Object.entries(byClass)) {
+      if (papers.length) {
+        result.push({ key: cls, label: cls.charAt(0).toUpperCase() + cls.slice(1), color: 'text-gray-600', papers });
+      }
+    }
+    return result;
+  }, [report.scholar_papers]);
 
   const patentGroups = useMemo(() => {
     const byClass: Record<string, Patent[]> = {};
@@ -94,6 +123,28 @@ export function ResultsDisplay({ report, progress, durationSeconds }: ResultsDis
                 <div className="grid gap-4">
                   {group.patents.map((patent, i) => (
                     <PatentCard key={patent.patent_number || i} patent={patent} animationIndex={i} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {paperGroups.length > 0 && (
+        <div>
+          <h3 className="text-lg font-medium text-gray-800 mb-3">
+            Academic Papers ({report.scholar_papers?.length ?? 0})
+          </h3>
+          <div className="space-y-6">
+            {paperGroups.map((group) => (
+              <div key={group.key}>
+                <h4 className={`text-sm font-semibold ${group.color} mb-2`}>
+                  {group.label} ({group.papers.length})
+                </h4>
+                <div className="grid gap-4">
+                  {group.papers.map((paper, i) => (
+                    <PaperCard key={paper.url || paper.title || i} paper={paper} animationIndex={i} />
                   ))}
                 </div>
               </div>

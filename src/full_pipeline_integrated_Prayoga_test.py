@@ -16,7 +16,6 @@ import re
 import time
 import os
 import copy
-import tempfile
 from datetime import datetime
 from botocore.config import Config
 from prompt_templates import PromptTemplates, get_invention_description
@@ -30,9 +29,10 @@ from summarization import summarize_sections_parallel, add_embeddings_parallel
 BUCKET = "patent-pdf-input-786827631714"
 
 # Model IDs
-MODEL_SONNET = "us.anthropic.claude-sonnet-4-6"   # For lightweight tasks (query gen)
-MODEL_OPUS = "us.anthropic.claude-opus-4-6-v1"    # For analysis
-
+MODEL_SONNET = "us.anthropic.claude-sonnet-4-6"
+# MODEL_SONNET = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"  # For lightweight tasks (query gen)
+# MODEL_OPUS = "us.anthropic.claude-opus-4-20250514-v1:0"        # For analysis
+MODEL_OPUS = "us.anthropic.claude-opus-4-6-v1"
 
 # Lazy-initialized components (populated by _init_components())
 bedrock: "boto3.client" = None  # type: ignore[assignment]
@@ -66,6 +66,7 @@ def _init_components():
     circuit_breaker = CircuitBreaker(failure_threshold=5, recovery_timeout=60.0)
     invention_agent = InventionExtractionAgentCached(
         bedrock, MODEL_SONNET, max_iterations=4,
+        # bedrock, MODEL_OPUS, max_iterations=4,
         rate_limiter=rate_limiter, circuit_breaker=circuit_breaker,
     )
     _initialized = True
@@ -96,7 +97,7 @@ class PatentSearcher:
                 "engine": "google_patents",
                 "q": query,
                 "api_key": self.api_key,
-                "before": "publication:20220101"
+                # "before": "publication:20220101"
             }
             time.sleep(self.delay)
             search = self.GoogleSearch(params)
@@ -277,7 +278,7 @@ def call_bedrock_json(prompt, max_tokens=4000, model_id=MODEL_OPUS, max_parse_re
         request_body = json.dumps({
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": max_tokens,
-            "temperature": 0.2,
+            "temperature": 0.1,
             "messages": messages,
         })
         result = invoke_bedrock_with_retry(
@@ -326,11 +327,12 @@ def stage_1_extract_invention_rag(sections):
 
     rag_agent = InventionExtractionAgentRAG(
         bedrock_client=bedrock,
+        # model_id=MODEL_SONNET,
         model_id=MODEL_OPUS,
         sections=sections,
         k=4,
         max_iterations=3,
-        patentability_mode="unified",
+        patentability_mode="",
     )
 
     result = rag_agent.run()
@@ -376,7 +378,8 @@ def stage_2_generate_queries(invention):
     print("="*60)
 
     prompt = PromptTemplates.generate_search_queries(invention, num_queries=10)
-    queries = call_bedrock_json(prompt, max_tokens=500, model_id=MODEL_SONNET)
+    print("promtpt:",prompt)
+    queries = call_bedrock_json(prompt, max_tokens=500, model_id=MODEL_OPUS)
 
     if queries:
         print(f"  Generated {len(queries)} queries:")
@@ -561,7 +564,7 @@ def stage_4_fetch_scholar_details(papers: list, max_concurrent: int = 5) -> list
     return results
 
 
-def stage_5_analyze_scholar_papers(invention, papers):
+def stage_5_analyze_scholar_papers(invention, papers):# MIGHT PETITION FOR CONCURRENCY INSTEAD OF SERIES
     """Stage 5 (papers): Analyze Google Scholar papers for prior art relevance (using Opus)."""
     print("\n" + "="*60)
     print("STAGE 5 (PAPERS): SCHOLAR PAPER ANALYSIS (Opus)")
@@ -663,7 +666,9 @@ def stage_6_generate_report(invention, patents, analysis, detailed_papers=None, 
         "invention": invention,
         "patents_found": len(patents),
         "patents_analyzed": len(analysis),
-        **{k: sum(1 for a in analysis if a.get('classification') == k) for k in ('blocking', 'relevant', 'related')},
+        "blocking": len([a for a in analysis if a.get('classification') == 'blocking']),
+        "relevant": len([a for a in analysis if a.get('classification') == 'relevant']),
+        "related": len([a for a in analysis if a.get('classification') == 'related']),
         "patents": patent_results,
         "scholar_papers_found": len(detailed_papers),
         "scholar_papers_analyzed": len(analysis_papers),
@@ -679,298 +684,6 @@ def stage_6_generate_report(invention, patents, analysis, detailed_papers=None, 
     print(f"    Scholar papers analyzed: {report['scholar_papers_analyzed']}")
 
     return report
-
-
-def generate_pdf_report(report, output_path):
-    """Render the pipeline report dict as a human-readable PDF."""
-    from reportlab.lib.pagesizes import letter
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import inch
-    from reportlab.lib import colors
-    from reportlab.platypus import (
-        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-        HRFlowable, KeepTogether,
-    )
-    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
-
-    # ---- helpers ----
-    def esc(text):
-        return str(text or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-    def trunc(text, n=800):
-        s = str(text or "")
-        return s[:n] + ("…" if len(s) > n else "")
-
-    # ---- colours ----
-    NAVY     = colors.HexColor("#1a3a5c")
-    DARK     = colors.HexColor("#2c3e50")
-    LIGHT_BG = colors.HexColor("#f4f6f8")
-    DIVIDER  = colors.HexColor("#bdc3c7")
-    CLS_HEX  = {
-        "blocking":             "#c0392b",
-        "relevant":             "#d35400",
-        "related":              "#2471a3",
-        "Potential Invention":  "#1e8449",
-        "Borderline Case":      "#ca6f1e",
-        "Scientific Discovery": "#717d7e",
-    }
-    def cls_hex(c): return CLS_HEX.get(c, "#2c3e50")
-    def cls_clr(c): return colors.HexColor(cls_hex(c))
-
-    # ---- styles ----
-    base = getSampleStyleSheet()
-
-    def sty(name, parent="Normal", **kw):
-        return ParagraphStyle(name, parent=base[parent], **kw)
-
-    T  = sty("T",  "Title",    fontSize=22, textColor=NAVY, spaceAfter=4,  alignment=TA_CENTER)
-    SB = sty("SB", "Normal",   fontSize=10, textColor=colors.HexColor("#7f8c8d"), spaceAfter=2, alignment=TA_CENTER)
-    H1 = sty("H1", "Heading1", fontSize=14, textColor=NAVY, spaceBefore=16, spaceAfter=4)
-    H2 = sty("H2", "Heading2", fontSize=11, textColor=DARK, spaceBefore=8,  spaceAfter=2)
-    LB = sty("LB", "Normal",   fontSize=8,  textColor=colors.HexColor("#95a5a6"), spaceAfter=0, leading=10)
-    BD = sty("BD", "Normal",   fontSize=10, textColor=DARK, leading=14, spaceAfter=6)
-    BU = sty("BU", "Normal",   fontSize=10, textColor=DARK, leading=13, spaceAfter=2, leftIndent=14, bulletIndent=4)
-    IT = sty("IT", "Normal",   fontSize=9,  textColor=colors.HexColor("#555555"), leading=13, spaceAfter=4)
-    MR = sty("MR", "Normal",   fontSize=9,  alignment=TA_RIGHT)
-
-    tbl_hdr = TableStyle([
-        ("BACKGROUND",   (0, 0), (-1, 0), NAVY),
-        ("TEXTCOLOR",    (0, 0), (-1, 0), colors.white),
-        ("FONTNAME",     (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE",     (0, 0), (-1,-1), 9),
-        ("ROWBACKGROUNDS", (0, 1), (-1,-1), [colors.white, LIGHT_BG]),
-        ("GRID",         (0, 0), (-1,-1), 0.4, DIVIDER),
-        ("VALIGN",       (0, 0), (-1,-1), "TOP"),
-        ("LEFTPADDING",  (0, 0), (-1,-1), 7),
-        ("RIGHTPADDING", (0, 0), (-1,-1), 7),
-        ("TOPPADDING",   (0, 0), (-1,-1), 4),
-        ("BOTTOMPADDING",(0, 0), (-1,-1), 4),
-    ])
-
-    card_hdr_style = TableStyle([
-        ("BACKGROUND",    (0, 0), (-1,-1), LIGHT_BG),
-        ("LEFTPADDING",   (0, 0), (-1,-1), 8),
-        ("RIGHTPADDING",  (0, 0), (-1,-1), 8),
-        ("TOPPADDING",    (0, 0), (-1,-1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1,-1), 6),
-        ("VALIGN",        (0, 0), (-1,-1), "MIDDLE"),
-    ])
-
-    def hr(space=8):
-        return HRFlowable(width="100%", thickness=0.5, color=DIVIDER, spaceAfter=space)
-
-    def section_hr():
-        return HRFlowable(width="100%", thickness=1.5, color=NAVY, spaceAfter=8)
-
-    # ---- card renderer (shared by patents and papers) ----
-    def make_card(primary_id, title, pub_info, abstract, cls, score, analysis_dict):
-        a = analysis_dict or {}
-        ch = cls_hex(cls)
-        block = []
-
-        header = Table([[
-            Paragraph(f"<b>{esc(trunc(primary_id, 80))}</b>", BD),
-            Paragraph(
-                f'<font color="{ch}"><b>{esc(cls).upper()}</b></font>'
-                f'&nbsp;&nbsp;{float(score or 0):.0%}',
-                MR,
-            ),
-        ]], colWidths=[3.6*inch, None])
-        header.setStyle(card_hdr_style)
-        block.append(header)
-
-        if title and title != primary_id:
-            block.append(Paragraph(esc(trunc(title, 200)), H2))
-        if pub_info:
-            block.append(Paragraph(esc(pub_info), LB))
-        if abstract:
-            block.append(Paragraph(f"<i>{esc(trunc(abstract, 500))}</i>", IT))
-
-        for lbl, key in [("Similarities", "similarities"),
-                          ("Differences",  "differences"),
-                          ("Analysis",     "analysis")]:
-            val = a.get(key, "")
-            if val:
-                block.append(Paragraph(lbl, LB))
-                block.append(Paragraph(esc(trunc(str(val), 700)), BD))
-
-        block.append(hr(space=10))
-        return KeepTogether(block)
-
-    # ================================================================
-    # BUILD STORY
-    # ================================================================
-    story = []
-    invention    = report.get("invention") or {}
-    patentability = report.get("patentability") or {}
-    conf         = report.get("final_confidence", 0.0)
-    pat_cls      = patentability.get("classification", "")
-    pat_score    = patentability.get("total_score", "—")
-
-    # ---- Cover ----
-    story.append(Paragraph(esc(invention.get("invention_name", "Patent Analysis Report")), T))
-    story.append(Paragraph(
-        f"Patentability Report &nbsp;·&nbsp; {datetime.now().strftime('%B %d, %Y')}",
-        SB,
-    ))
-    if pat_cls:
-        story.append(Paragraph(
-            f'<font color="{cls_hex(pat_cls)}"><b>{esc(pat_cls)}</b></font>'
-            f'&nbsp;&nbsp;Score: {pat_score}/6'
-            f'&nbsp;&nbsp;Extraction confidence: {conf:.0%}',
-            sty("CM", fontSize=10, alignment=TA_CENTER, spaceAfter=10),
-        ))
-    story.append(HRFlowable(width="100%", thickness=2, color=NAVY, spaceAfter=12))
-
-    # ---- 1. Invention Summary ----
-    story.append(Paragraph("1. Invention Summary", H1))
-    story.append(section_hr())
-
-    for lbl, key in [("Technical Description", "technical_description"),
-                      ("Problem Statement",     "problem_statement"),
-                      ("Solution Approach",     "solution_approach")]:
-        val = invention.get(key, "")
-        if val:
-            story.append(Paragraph(lbl, LB))
-            story.append(Paragraph(esc(trunc(val)), BD))
-
-    features = invention.get("key_technical_features") or []
-    if features:
-        story.append(Paragraph("Key Technical Features", LB))
-        for f in features:
-            story.append(Paragraph(f"• {esc(f)}", BU))
-        story.append(Spacer(1, 4))
-
-    statutory = invention.get("statutory_category", [])
-    if isinstance(statutory, list):
-        statutory = ", ".join(statutory)
-    keywords = ", ".join(invention.get("inventor_keywords") or [])
-    meta_rows = [r for r in [
-        ("Domain",             invention.get("domain_classification", "")),
-        ("Statutory Category", statutory),
-        ("Keywords",           keywords),
-    ] if r[1]]
-    if meta_rows:
-        meta_tbl = Table(
-            [[Paragraph(k, LB), Paragraph(esc(v), BD)] for k, v in meta_rows],
-            colWidths=[1.5*inch, None],
-        )
-        meta_tbl.setStyle(TableStyle([
-            ("VALIGN",       (0,0), (-1,-1), "TOP"),
-            ("LEFTPADDING",  (0,0), (-1,-1), 0),
-            ("RIGHTPADDING", (0,0), (-1,-1), 6),
-            ("BOTTOMPADDING",(0,0), (-1,-1), 4),
-        ]))
-        story.append(meta_tbl)
-
-    # ---- 2. Patentability Assessment ----
-    if patentability:
-        story.append(Paragraph("2. Patentability Assessment", H1))
-        story.append(section_hr())
-        story.append(Paragraph(
-            f'Classification: <font color="{cls_hex(pat_cls)}"><b>{esc(pat_cls)}</b></font>'
-            f'&nbsp;&nbsp;|&nbsp;&nbsp;Total Score: <b>{pat_score}/6</b>',
-            BD,
-        ))
-        justification = patentability.get("justification", "")
-        if justification:
-            story.append(Paragraph("Justification", LB))
-            story.append(Paragraph(esc(trunc(justification, 1500)), BD))
-
-        facets = patentability.get("facets") or {}
-        if facets:
-            rows = [["Facet", "Score", "Rationale"]]
-            for fid, fd in sorted(facets.items()):
-                rows.append([
-                    Paragraph(esc(fd.get("name", fid)), BD),
-                    Paragraph(str(fd.get("score", "—")), BD),
-                    Paragraph(esc(trunc(fd.get("rationale", ""), 350)), BD),
-                ])
-            ft = Table(rows, colWidths=[1.6*inch, 0.5*inch, None])
-            ft.setStyle(tbl_hdr)
-            story.append(ft)
-
-    # ---- 3. Prior Art Summary ----
-    story.append(Paragraph("3. Prior Art Summary", H1))
-    story.append(section_hr())
-
-    stat_rows = [
-        ["",          "Patents",                              "Scholar Papers"],
-        ["Found",     str(report.get("patents_found", 0)),    str(report.get("scholar_papers_found", 0))],
-        ["Analyzed",  str(report.get("patents_analyzed", 0)), str(report.get("scholar_papers_analyzed", 0))],
-        ["Blocking",  str(report.get("blocking", 0)),         "—"],
-        ["Relevant",  str(report.get("relevant", 0)),         "—"],
-        ["Related",   str(report.get("related", 0)),          "—"],
-    ]
-    st = Table(stat_rows, colWidths=[1.2*inch, 1.2*inch, 1.5*inch])
-    st.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (-1, 0), NAVY),
-        ("TEXTCOLOR",     (0, 0), (-1, 0), colors.white),
-        ("FONTNAME",      (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTNAME",      (0, 1), (0,-1),  "Helvetica-Bold"),
-        ("FONTSIZE",      (0, 0), (-1,-1), 9),
-        ("ALIGN",         (1, 0), (-1,-1), "CENTER"),
-        ("ROWBACKGROUNDS",(0, 1), (-1,-1), [colors.white, LIGHT_BG]),
-        ("GRID",          (0, 0), (-1,-1), 0.4, DIVIDER),
-        ("LEFTPADDING",   (0, 0), (-1,-1), 8),
-        ("RIGHTPADDING",  (0, 0), (-1,-1), 8),
-        ("TOPPADDING",    (0, 0), (-1,-1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1,-1), 4),
-        # colour-code the classification rows
-        ("TEXTCOLOR", (0, 3), (0, 3), cls_clr("blocking")),
-        ("TEXTCOLOR", (0, 4), (0, 4), cls_clr("relevant")),
-        ("TEXTCOLOR", (0, 5), (0, 5), cls_clr("related")),
-    ]))
-    story.append(st)
-    story.append(Spacer(1, 12))
-
-    # ---- 4. Patents ----
-    CLS_ORDER = {"blocking": 0, "relevant": 1, "related": 2}
-    patents = sorted(
-        [p for p in (report.get("patents") or []) if p.get("analysis")],
-        key=lambda p: CLS_ORDER.get(p.get("analysis", {}).get("classification", ""), 3),
-    )
-    if patents:
-        story.append(Paragraph("4. Patent Prior Art", H1))
-        story.append(section_hr())
-        for p in patents:
-            a = p.get("analysis", {})
-            story.append(make_card(
-                primary_id=p.get("patent_number", "Unknown"),
-                title=p.get("title", ""),
-                pub_info=None,
-                abstract=p.get("abstract", ""),
-                cls=a.get("classification", ""),
-                score=a.get("relevance_score", 0),
-                analysis_dict=a,
-            ))
-
-    # ---- 5. Scholar Papers ----
-    scholar_papers = [p for p in (report.get("scholar_papers") or []) if p.get("analysis")]
-    if scholar_papers:
-        story.append(Paragraph("5. Scholar Papers Prior Art", H1))
-        story.append(section_hr())
-        for p in scholar_papers:
-            a = p.get("analysis", {})
-            story.append(make_card(
-                primary_id=p.get("title", "Unknown"),
-                title=None,
-                pub_info=p.get("publication_info", ""),
-                abstract=p.get("abstract", ""),
-                cls=a.get("classification", ""),
-                score=a.get("relevance_score", 0),
-                analysis_dict=a,
-            ))
-
-    doc = SimpleDocTemplate(
-        output_path,
-        pagesize=letter,
-        leftMargin=0.85*inch, rightMargin=0.85*inch,
-        topMargin=0.9*inch,   bottomMargin=0.9*inch,
-    )
-    doc.build(story)
-    print(f"  PDF report generated: {output_path}")
-    return output_path
 
 
 # ============================================================
@@ -1035,12 +748,13 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
     new_section = summarize_sections_parallel(sections, concurrency=8)
     new_section = add_embeddings_parallel(new_section, concurrency=8)
     print(f"  Summarized and embedded {len(new_section)} sections")
-    print(f"  [TIMER] Stage 0 elapsed: {time.time() - _t0:.1f}s")
 
     # Stage 1: Extract invention (RAG agent with validate/refine/judge)
-    _t1 = time.time()
+
     _emit(1, "Extracting invention details (RAG)")
     stage1_result = stage_1_extract_invention_rag(new_section)
+    print(f"  [TIMER] Stage 1 elapsed: {time.time() - _t0:.1f}s")
+    # exit()
     agent_log_file = stage1_result.get("log_file") if stage1_result else None
 
     if not stage1_result:
@@ -1056,7 +770,7 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
         print(f"  Confidence: {stage1_result.get('final_confidence', 0):.2f}")
         print(f"  Stop reason: {stage1_result.get('stop_reason', '')}")
 
-    print(f"  [TIMER] Stage 1 elapsed: {time.time() - _t1:.1f}s")
+    
 
     # Stage 2: Generate queries
     _emit(2, "Generating search queries")
@@ -1074,9 +788,11 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
     papers = []
     detailed_papers = []
     analysis_arxiv = []
+    
     if not queries:
         print("  WARNING: No search queries generated — skipping patent search stages")
     else:
+        exit()
         # Stage 3: Search patents + arxiv papers
         _emit(3, "Searching patents and papers", detail=f"{len(queries)} queries")
         try:
@@ -1106,6 +822,13 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
 
             # Stage 5: Analyze patents + arxiv papers
             _emit(5, "Analyzing prior art", detail=f"{len(detailed)} patents, {len(detailed_papers)} papers")
+            # invention_desc = (
+            #     f"Name: {invention.get('invention_name', '')}\n"
+            #     f"Description: {invention.get('technical_description', '')}\n"
+            #     f"Problem: {invention.get('problem_statement', '')}\n"
+            #     f"Solution: {invention.get('solution_approach', '')}\n"
+            #     f"Features: {', '.join(invention.get('key_technical_features', []))}"
+            # )
             try:
                 analysis = stage_5_analyze_patents(invention, detailed)
             except JsonParseExhaustedError:
@@ -1134,7 +857,7 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
         report["patentability"] = patentability
         report["final_confidence"] = stage1_result.get("final_confidence", 0.0)
 
-    # Save JSON report to S3
+    # Save report to S3
     output_key = pdf_key.replace('input/', 'results/').replace('.pdf', '_report.json')
     try:
         s3.put_object(
@@ -1147,27 +870,9 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
     except Exception as e:
         print(f"  Failed to save report to S3: {e}")
 
-    # Generate and upload PDF report
-    pdf_key_s3 = pdf_key.replace('input/', 'results/').replace('.pdf', '_report.pdf')
-    try:
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-            tmp_path = tmp.name
-        generate_pdf_report(report, tmp_path)
-        with open(tmp_path, "rb") as f:
-            s3.put_object(
-                Bucket=bucket,
-                Key=pdf_key_s3,
-                Body=f.read(),
-                ContentType='application/pdf'
-            )
-        print(f"PDF report saved: s3://{bucket}/{pdf_key_s3}")
-        os.unlink(tmp_path)
-    except Exception as e:
-        print(f"  Failed to generate/upload PDF report: {e}")
-
     # Upload agent logs to S3
     if agent_log_file:
-        log_key = pdf_key.replace('input/', 'logs/').replace('.pdf', '_agent_logs.json')
+        log_key = pdf_key.replace('input/', 'logs/').replace('.pdf', '_agent_logs_Testing.json')
         try:
             with open(agent_log_file, 'r') as f:
                 log_content = f.read()

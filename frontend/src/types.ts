@@ -67,6 +67,24 @@ export interface RunMetadata {
   retrieval_config: Record<string, number>;
 }
 
+export interface ScholarPaperAnalysis {
+  title: string;
+  classification: string;
+  relevance_score: number;
+  similarities?: string[];
+  differences?: string[];
+  analysis?: string;
+}
+
+export interface ScholarPaper {
+  title: string;
+  url: string;
+  publication_info: string;
+  abstract: string;
+  doi?: string;
+  analysis?: ScholarPaperAnalysis;
+}
+
 export interface PipelineReport {
   invention: Invention;
   patents_found: number;
@@ -75,6 +93,9 @@ export interface PipelineReport {
   relevant: number;
   related: number;
   patents: Patent[];
+  scholar_papers_found?: number;
+  scholar_papers_analyzed?: number;
+  scholar_papers?: ScholarPaper[];
   run_metadata?: RunMetadata;
 }
 

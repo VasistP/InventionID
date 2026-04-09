@@ -21,82 +21,108 @@ import time
 from datetime import datetime
 from summarization import embed_text_titan
 from tools.schema_validator import validate_schema
-from tools.patentability_classifier import load_config as load_patentability_config, build_patentability_prompt, validate_classification
+from tools.patentability_classifier_v2 import load_config as load_patentability_config, build_patentability_prompt, validate_classification
 from tools.judgeBot import run_judge, _load_config as load_judge_config
 from utils.rate_limiter import BedrockRateLimiter, CircuitBreaker, invoke_bedrock_with_retry
-
 
 
 # 4 targeted RAG queries, each mapped to the fields they fill
 RAG_QUERIES = [
     {
-        "query": "What is the invention name and technical description?",
+        "query": "What is the invention name and technical description, including specific process parameters, materials, dimensions, and operational details?",
         "fields": ["invention_name", "technical_description"],
         "prompt_instructions": (
             "Return this EXACT JSON structure:\n"
             "{\n"
             '  "invention_name": "concise name (max 10 words)",\n'
-            '  "technical_description": "2-4 sentences describing the technical approach",\n'
+            '  "technical_description": "4-6 sentences describing the technical approach",\n'
             '  "citations": {\n'
             '    "invention_name": ["quote 1: [section_id]", "quote 2: [section_id]", ...],\n'
             '    "technical_description": ["quote 1: [section_id]", "quote 2: [section_id]", "quote 3: [section_id]", ...]\n'
             "  }\n"
             "}\n"
+            "IMPORTANT for technical_description:\n"
+            "- Include specific quantitative parameters disclosed in the document: flow rates, speeds, temperatures, voltages, dimensions, concentrations, frequencies, timing values, etc.\n"
+            "- Include specific materials, grades, or compositions (e.g., 'NdFeB grade 42', 'LORD MRF-140CG', 'ZEP e-beam resist').\n"
+            "- Include preparation or fabrication steps that are part of the inventive process (e.g., dilution ratios, sonication, deposition passes).\n"
+            "- Include specific layer stacks, physical construction details, or device geometries where disclosed.\n"
+            "- These specifics are important for patent claim support — do not omit them in favor of vague summaries.\n"
             "Include as many relevant direct quotes as possible for each field. "
             "Do NOT limit to 1 or 2 — extract every supporting quote you can find.\n"
         ),
     },
     {
-        "query": "What problem or limitation does this work address?",
+        "query": "What problem or limitation in the prior art does this work specifically address?",
         "fields": ["problem_statement"],
         "prompt_instructions": (
             "Return this EXACT JSON structure:\n"
             "{\n"
-            '  "problem_statement": "the problem or limitation that exists BEFORE this invention (2-3 sentences)",\n'
+            '  "problem_statement": "the problem or limitation that exists BEFORE this invention (4-5 sentences)",\n'
             '  "citations": {\n'
             '    "problem_statement": ["quote 1: [section_id]", "quote 2: [section_id]", "quote 3: [section_id]", ...]\n'
             "  }\n"
             "}\n"
-            "IMPORTANT: The problem_statement must describe the GAP or LIMITATION in the current state of the art — "
-            "NOT what this invention does or how it works. "
-            "Do NOT mention the proposed solution, system, method, or framework. "
-            "Focus on: what is difficult, what is missing, what existing approaches fail at, "
+            "IMPORTANT:\n"
+            "- The problem_statement must describe the GAP or LIMITATION in the current state of the art — "
+            "NOT what this invention does or how it works.\n"
+            "- Do NOT mention the proposed solution, system, method, or framework.\n"
+            "- Focus on: what is difficult, what is missing, what existing approaches fail at, "
             "and why the current state is insufficient.\n"
+            "- Distinguish between problems this invention actually solves and remaining open challenges "
+            "that the authors identify as future work. Only include the former.\n"
+            "- Citations must be problem-stating quotes, not descriptive or background explanations. "
+            "Reject any citation that merely defines a concept rather than asserting a limitation.\n"
             "Include as many relevant direct quotes as possible. "
             "Do NOT limit to 1 or 2 — extract every supporting quote you can find.\n"
         ),
     },
     {
-        "query": "What is the solution approach and key technical features?",
+        "query": "What is the solution approach, key technical features, differentiating mechanisms, and demonstrated results?",
         "fields": ["solution_approach", "key_technical_features"],
         "prompt_instructions": (
             "Return this EXACT JSON structure:\n"
             "{\n"
-            '  "solution_approach": "how it solves the problem (2-3 sentences)",\n'
+            '  "solution_approach": "how it solves the problem (4-5 sentences)",\n'
             '  "key_technical_features": ["feature1", "feature2", "feature3", "feature4", "feature5"],\n'
             '  "citations": {\n'
             '    "solution_approach": ["quote 1: [section_id]", "quote 2: [section_id]", "quote 3: [section_id]", ...],\n'
             '    "key_technical_features": ["quote 1: [section_id]", "quote 2: [section_id]", "quote 3: [section_id]", ...]\n'
             "  }\n"
             "}\n"
-            "IMPORTANT: The solution_approach must be technically specific. "
-            "Name the exact architecture, algorithms, components, and mechanisms used. "
-            "For example, instead of 'a hierarchical control framework', say "
-            "'a two-level hierarchical policy separating base locomotion from arm control'. "
-            "Instead of 'a reward system', say 'a constellation reward that unifies position and orientation tracking'. "
-            "Be precise about HOW the system works, not just WHAT it does.\n"
-            "Include as many relevant direct quotes as possible for each field. "
+            "IMPORTANT for solution_approach:\n"
+            "- Be technically specific: name the exact architecture, algorithms, components, and mechanisms.\n"
+            "- For example, instead of 'a hierarchical control framework', say "
+            "'a two-level hierarchical policy separating base locomotion from arm control'.\n"
+            "- Clearly distinguish what has been experimentally demonstrated from what is "
+            "expected, proposed, or left as future work. Use language like 'demonstrated X' vs 'the authors expect Y'.\n"
+            "- Do NOT repeat the technical_description — solution_approach should focus on "
+            "HOW the invention solves the specific problem identified, not re-describe the system.\n"
+            "- If the invention includes both a basic/initial algorithm and an optimized version, "
+            "describe the full evolution (e.g., 'a two-condition peak-detection check, later replaced by a DFT-based approach').\n"
+            "\n"
+            "IMPORTANT for key_technical_features:\n"
+            "- Each feature should be a concrete, specific, patent-relevant claim element — not vague descriptions.\n"
+            "- Include specific quantitative operational parameters as distinct features "
+            "(e.g., 'sheath-to-carrier gas flow ratio of 5:1 at working distance of 4-6 mm').\n"
+            "- Include differentiating mechanisms that distinguish this invention from prior art "
+            "(e.g., 'post-deposition plasma treatment without ink flow for conductivity enhancement').\n"
+            "- Include key design principles or architectural decisions disclosed "
+            "(e.g., 'default NLOS classification: any signal not meeting LOS criteria is classified as NLOS').\n"
+            "- Include demonstrated applications or use cases with concrete results.\n"
+            "- Include analytical or mathematical models disclosed (e.g., 'Bingham plastic model with Couette flow approximation').\n"
+            "- Include known limitations or performance boundaries if disclosed — these are relevant for claim scoping.\n"
+            "Aim for 6-8 features. Include as many relevant direct quotes as possible for each field. "
             "Do NOT limit to 1 or 2 — extract every supporting quote you can find.\n"
         ),
     },
     {
-        "query": "What domain and statutory category does this belong to?",
+        "query": "What domain, patent statutory category, and technical keywords describe this invention?",
         "fields": ["domain_classification", "statutory_category", "inventor_keywords"],
         "prompt_instructions": (
             "Return this EXACT JSON structure:\n"
             "{\n"
             '  "domain_classification": "e.g., AI/ML, Robotics, Healthcare",\n'
-            '  "statutory_category": "Process, Machine, Manufacture, or Composition of Matter",\n'
+            '  "statutory_category": ["Process", "Machine"],\n'
             '  "inventor_keywords": ["keyword1", "keyword2", "keyword3"],\n'
             '  "citations": {\n'
             '    "domain_classification": ["quote 1: [section_id]", "quote 2: [section_id]", ...],\n'
@@ -104,6 +130,18 @@ RAG_QUERIES = [
             '    "inventor_keywords": ["quote 1: [section_id]", "quote 2: [section_id]", ...]\n'
             "  }\n"
             "}\n"
+            "IMPORTANT for statutory_category:\n"
+            "- statutory_category must be a JSON array listing ALL applicable categories from: "
+            "Process, Machine, Manufacture, Composition of Matter.\n"
+            "- Consider each independently: a fabrication method → Process; the resulting device → Machine or Manufacture; "
+            "a new material or compound → Composition of Matter. Many inventions qualify under multiple categories.\n"
+            "- Do not default to a single category — if both a method and an apparatus are disclosed, include both.\n"
+            "\n"
+            "IMPORTANT for inventor_keywords:\n"
+            "- Include specific algorithm names, named techniques, named models, and domain-specific technical terms.\n"
+            "- Include terms central to the inventive concept (e.g., 'Walsh-Hadamard codes', 'Couette flow', "
+            "'DFT-based LOS/NLOS classification', 'heterogeneous integration').\n"
+            "- Aim for 8-12 keywords covering both broad domain terms and specific technical identifiers.\n"
             "Include as many relevant direct quotes as possible for each field. "
             "Do NOT limit to 1 or 2 — extract every supporting quote you can find.\n"
         ),
@@ -239,12 +277,36 @@ class InventionExtractionAgentRAG:
     # LLM call
     # ------------------------------------------------------------------
 
+    SYSTEM_PROMPT = (
+        "You participate in a ReAct loop. On each turn the user "
+        "will ask you to EXTRACT, VALIDATE, or REFINE an invention "
+        "description. Always respond with valid JSON only — no "
+        "markdown fences, no extra commentary.\n"
+        "When you reference evidence, quote short passages from the document.\n\n"
+        "After you produce JSON, three tools run automatically:\n"
+        "1. SCHEMA_VALIDATION — checks required fields and types. "
+        "If errors are found, you will receive an observation and "
+        "must fix ALL errors immediately.\n"
+        "2. PATENTABILITY_CHECK — applies a 3-facet rubric (Nature "
+        "of Innovation, Conceptual Foundation, Practical Application) "
+        "to classify the extraction as Scientific Discovery, "
+        "Borderline Case, or Potential Invention. If scored low, "
+        "focus refinement on concrete mechanisms and measurable "
+        "results from the document.\n"
+        "3. JUDGE_BOT — an independent LLM (Meta Llama) scores your "
+        "extraction on completeness, specificity, consistency, "
+        "citation quality, and patent-readiness (each 0-2). You "
+        "will see dimension scores and rationales. Use this feedback "
+        "to improve weak areas during refinement."
+    )
+
     def _call_llm(self, prompt, max_tokens=2000):
         """Call Bedrock with a single prompt."""
         request_body = json.dumps({
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": max_tokens,
             "temperature": 0.2,
+            "system": [{"type": "text", "text": self.SYSTEM_PROMPT}],
             "messages": [{"role": "user", "content": prompt}],
         })
 
@@ -311,13 +373,13 @@ class InventionExtractionAgentRAG:
             f"EXTRACT:\n{instructions}\n"
             f"Return a JSON object with ONLY the requested fields and a \"citations\" object.\n"
             f"Each citation must be a SHORT direct quote from the text above.\n"
-            f"Include at least 3 relevant quotes as per field\n"
-            f"Also add the section_id of each quote at the end"
-            # f"Include as many relevant quotes as possible per field — the more evidence the better.\n"
+            f"Include at least 3 relevant quotes per field.\n"
+            f"Add the section_id of each quote at the end.\n"
+            f"Include as many relevant quotes as possible per field.\n"
             f"Return JSON only, no other text."
         )
 
-        response = self._call_llm(prompt)
+        response = self._call_llm(prompt, max_tokens=5000)
         self._log("extract_response", {"query": query, "fields": fields, "response": response[:1000]})
 
         parsed = self._parse_json_response(response)
@@ -455,7 +517,6 @@ class InventionExtractionAgentRAG:
         print(f"\n--- Patentability Check (unified, {len(retrieved_sections)} sections) ---")
         context_text = self._build_section_context(retrieved_sections)
         prompt = self._build_rag_patentability_prompt(invention, context_text, config)
-
         response = self._call_llm(prompt, max_tokens=1500)
         self._log("patentability_response", {"response": response[:1500]})
 
@@ -610,15 +671,21 @@ class InventionExtractionAgentRAG:
             f"INVENTION:\n{json.dumps(invention, indent=2)}\n\n"
         )
         if tool_feedback:
-            msg += f"PRIOR TOOL FEEDBACK (take into account):\n{tool_feedback}\n\n"
+            msg += f"PRIOR analysis result:\n{tool_feedback}\n\n"
         msg += (
+            "Important:\n"
+            "- The source may be primarily theoretical, analytical, or academic in overall contribution.\n"
+            "- This does NOT by itself reduce extraction quality or reviewer confidence.\n"
+            "- Your task is to judge the quality of the extraction against the source document.\n"
             "Evaluate:\n"
             "1. Are all required fields present and non-empty?\n"
-            "2. Is the technical description specific and detailed enough?\n"
-            "3. Are key_technical_features actually technical (not vague)?\n"
-            "4. Is the problem_statement clear?\n"
-            "5. Does solution_approach explain HOW the invention works?\n"
-            "6. Do the citations accurately reflect what the document says?\n\n"
+            "2. Does the extraction faithfully reflect the source, even if the source is primarily theoretical?\n"
+            "3. Does it clearly identify any concrete technical process, algorithmic procedure, or implementation details actually disclosed?\n"
+            "4. Is the technical description sufficiently specific and source-supported?\n"
+            "5. Are the key technical features genuinely technical and not vague marketing language?\n"
+            "6. Does the extraction avoid overstating invention potential?\n"
+            "7. Does the extraction avoid understating concrete technical content that is present?\n"
+            "8. Are the citations accurate and appropriately used?\n"
             "Return JSON with these exact keys:\n"
             "{\n"
             '  "valid": true or false,\n'
@@ -629,10 +696,10 @@ class InventionExtractionAgentRAG:
             "RULES:\n"
             "- confidence must be a number from 0.0 to 1.0.\n"
             "- If extraction is complete and high-quality, confidence >= 0.85.\n"
+            "- Use lower confidence only for actual extraction weaknesses, not merely because patentability is low.\n"
             "- Return JSON only, no markdown fences, no other text."
         )
-
-        response = self._call_llm(msg, max_tokens=600)
+        response = self._call_llm(msg, max_tokens=2000)
         self._log("validate_response", {"response": response})
 
         parsed = self._parse_json_response(response)
@@ -971,7 +1038,11 @@ class InventionExtractionAgentRAG:
                 "classification": patentability.get("classification"),
                 "total_score": patentability.get("total_score"),
                 "facets": {
-                    f.get("facet_id"): f.get("score")
+                    f.get("facet_id"): {
+                        "name":      f.get("facet_name", f.get("facet_id")),
+                        "score":     f.get("score"),
+                        "rationale": f.get("reasoning", f.get("rationale", "")),
+                    }
                     for f in patentability.get("facets", [])
                 },
                 "justification": patentability.get("justification"),

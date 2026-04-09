@@ -39,7 +39,7 @@ Summary:"""
     body = {
         "anthropic_version": "bedrock-2023-05-31",
         "max_tokens": 1000,
-        "temperature": 0.2,
+        "temperature": 0.1,
         "messages": [
             {
                 "role": "user",
