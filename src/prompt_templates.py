@@ -27,7 +27,7 @@ class PromptTemplates:
         Returns:
             Formatted prompt string
         """
-        return f"""Generate {num_queries} highly effective patent search queries for this invention.
+        return f"""You are a patent search expert. Generate {num_queries} highly targeted search queries to find prior art for this invention. Your queries will be used verbatim on Google Patents.
 
 INVENTION: {invention_data.get('invention_name', 'Unknown')}
 
@@ -43,14 +43,36 @@ SOLUTION APPROACH:
 KEY TECHNICAL FEATURES:
 {', '.join(invention_data.get('key_technical_features', []))}
 
-Generate {num_queries} search queries that will find relevant prior art. Each query should be 5-10 words and use technical terminology suitable for Google Patents search.
+INVENTOR KEYWORDS:
+{', '.join(invention_data.get('inventor_keywords', []))}
+
+Generate exactly {num_queries} queries. Distribute them across these FOUR strategy types to maximize coverage. Include ALL {num_queries} queries even if some overlap slightly — breadth matters here.
+
+STRATEGY A — Specific Material/Process Queries (3-4 queries):
+Combine the most specific materials, compounds, or processes from the invention.
+Include precise technical terms, material grades, synthesis methods, or processing conditions.
+Use 8-15 words. Example style: "in-situ graphene synthesis copper powder additive manufacturing heat dissipation"
+
+STRATEGY B — Mechanism/Functional Queries (3-4 queries):
+Focus on what the invention DOES or HOW it works — the core mechanism or operating principle.
+Use technical verb phrases. Example style: "parametric spin wave amplification surface acoustic wave magnonic device"
+
+STRATEGY C — Application/Domain Queries (3-4 queries):
+Capture the end-use domain, application area, and measurable outcome.
+Include performance metrics or improvement types if distinctive.
+Example style: "topology optimization piezoelectric actuator compliant mechanism decoupled motion"
+
+STRATEGY D — Synonym/Alternative Term Queries (2-3 queries):
+Use alternative terminology, synonyms, or related concepts that different assignees might use to describe the same invention. Think across US, CN, WO, EP patent families — include Chinese-context terms if the domain has strong CN prior art.
+
+Rules:
+- Preserve specific technical terms from the invention — do NOT generalize them away
+- Queries can be 5-20 words; longer is fine when specificity requires it
+- Do not include strategy labels in the output queries
 
 IMPORTANT: Return ONLY a JSON array with no other text.
 
-Format:
-```json
-["query 1", "query 2", "query 3", ...]
-```"""
+["query 1", "query 2", ...]"""
 
     @staticmethod
     def get_patents(query: str, max_results: int = 10) -> str:

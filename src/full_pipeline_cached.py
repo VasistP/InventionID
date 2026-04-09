@@ -87,7 +87,6 @@ class PatentSearcher:
                 "engine": "google_patents",
                 "q": query,
                 "api_key": self.api_key,
-                "before": "publication:20220101"
             }
             time.sleep(self.delay)
             search = self.GoogleSearch(params)
@@ -165,7 +164,6 @@ class PatentSearcher:
                 "engine": "google_scholar",
                 "q": query,
                 "api_key": self.api_key,
-                "as_yhi": "2022"
             }
             time.sleep(self.delay)
             search = self.GoogleSearch(params)

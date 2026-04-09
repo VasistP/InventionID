@@ -15,16 +15,17 @@ MODEL_QUERY_GEN = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 # Patent analysis (Stage 5) — needs strong reasoning
 MODEL_ANALYSIS = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
-# sonnet: "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
-# opus: "us.anthropic.claude-opus-4-20250514-v1:0"
+# sonnet 4-5: "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+# opus 4:     "us.anthropic.claude-opus-4-20250514-v1:0"
+# opus 4.6:   "us.anthropic.claude-opus-4-6-20261001-v1:0"
 
 
 # ── Search ────────────────────────────────────────────────────────────────────
 # How many distinct search queries to generate from the invention description
-NUM_SEARCH_QUERIES = 10
+NUM_SEARCH_QUERIES = 15
 
 # Maximum patent results returned per query (Google Patents via SerpAPI)
-MAX_RESULTS_PER_QUERY = 5
+MAX_RESULTS_PER_QUERY = 10
 
 # Parallel SerpAPI search workers
 MAX_SEARCH_CONCURRENT = 5
@@ -35,11 +36,11 @@ SERPAPI_DELAY = 0.2
 
 # ── Analysis ──────────────────────────────────────────────────────────────────
 # How many patents to fetch full details for (Stage 4)
-MAX_PATENTS_TO_FETCH = 10
+MAX_PATENTS_TO_FETCH = 20
 
 # How many patents to run LLM analysis on (Stage 5)
 # Must be <= MAX_PATENTS_TO_FETCH
-MAX_PATENTS_TO_ANALYZE = 5
+MAX_PATENTS_TO_ANALYZE = 15
 
 
 # ── Invention Agent ───────────────────────────────────────────────────────────

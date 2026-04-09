@@ -493,12 +493,11 @@ class InventionExtractionAgentCached:
         })
 
         response = self._call_llm(system_blocks, messages, max_tokens=1500)
-        self._log("patentability_response", {"response": response[:1500]})
         messages.append({"role": "assistant", "content": response})
 
         parsed = self._parse_json_response(response)
         if not parsed:
-            self._log("patentability_parse_error", {"raw": response[:500]})
+            self._log("patentability_parse_error", {"raw": response})
             print("  Patentability check: parse error, skipping")
             return None
 
@@ -664,7 +663,6 @@ class InventionExtractionAgentCached:
                 })
 
                 response = self._call_llm(system_blocks, messages, max_tokens=2000)
-                self._log("extract_response", {"response": response[:1000]})
 
                 # Append assistant response to conversation history
                 messages.append({"role": "assistant", "content": response})
@@ -672,7 +670,7 @@ class InventionExtractionAgentCached:
                 parsed = self._parse_json_response(response)
                 if not parsed:
                     print("  Parse error in extraction, requesting immediate fix...")
-                    self._log("extraction_parse_error", {"raw": response[:500]})
+                    self._log("extraction_parse_error", {"raw": response})
                     messages.append({
                         "role": "user",
                         "content": (
@@ -682,12 +680,11 @@ class InventionExtractionAgentCached:
                         ),
                     })
                     retry_response = self._call_llm(system_blocks, messages, max_tokens=2000)
-                    self._log("extract_retry_response", {"response": retry_response[:1000]})
                     messages.append({"role": "assistant", "content": retry_response})
                     parsed = self._parse_json_response(retry_response)
                     if not parsed:
                         print("  Retry also failed to produce valid JSON, continuing...")
-                        self._log("extraction_retry_parse_error", {"raw": retry_response[:500]})
+                        self._log("extraction_retry_parse_error", {"raw": retry_response})
                         continue
 
                 # Run schema validation as a tool observation
@@ -730,8 +727,6 @@ class InventionExtractionAgentCached:
             })
 
             response = self._call_llm(system_blocks, messages, max_tokens=600)
-            self._log("validate_response", {"response": response})
-
             messages.append({"role": "assistant", "content": response})
 
             validation = self._parse_json_response(response)
@@ -762,7 +757,8 @@ class InventionExtractionAgentCached:
                 "self_confidence": self_confidence,
                 "no_suggestions": no_suggestions,
                 "valid": validation.get("valid"),
-                "suggestions_preview": suggestions_str[:200] if suggestions_str else "",
+                "missing_fields": validation.get("missing_fields"),
+                "suggestions": suggestions_str,
             })
 
             # ==== STOP CONDITIONS ====
@@ -787,8 +783,6 @@ class InventionExtractionAgentCached:
             })
 
             response = self._call_llm(system_blocks, messages, max_tokens=2000)
-            self._log("refine_response", {"response": response[:1000]})
-
             messages.append({"role": "assistant", "content": response})
 
             parsed = self._parse_json_response(response)
@@ -801,7 +795,7 @@ class InventionExtractionAgentCached:
                 print(f"  Refined: {invention.get('invention_name', 'Unknown')}")
             else:
                 print("  Refinement parse error, keeping previous version")
-                self._log("refinement_parse_error", {"raw": response[:500]})
+                self._log("refinement_parse_error", {"raw": response})
 
           except CircuitBreakerOpenError as e:
             print(f"  Circuit breaker open: {e}")
@@ -836,7 +830,6 @@ class InventionExtractionAgentCached:
                         "content": self._refinement_user_msg(invention, judge_observation),
                     })
                     response = self._call_llm(system_blocks, messages, max_tokens=2000)
-                    self._log("judge_triggered_refine", {"response": response[:1000]})
                     messages.append({"role": "assistant", "content": response})
 
                     parsed = self._parse_json_response(response)
@@ -872,6 +865,9 @@ class InventionExtractionAgentCached:
                 "justification": patentability.get("justification"),
                 "recommendation": patentability.get("recommendation"),
             }
+
+        # Save the full multi-turn conversation for debugging
+        self._log("conversation", {"messages": messages})
 
         self._log("complete", {
             "invention": final_invention,
