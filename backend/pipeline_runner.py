@@ -25,7 +25,13 @@ def run_pipeline_with_progress(bucket, pdf_key, progress_callback=None):
         raise PipelineAlreadyRunningError("A pipeline is already running")
 
     try:
-        from full_pipeline_cached import run_pipeline
+        # ── Pipeline version switch ──────────────────────────────────────────
+        # Vector-ranked: re-ranks all candidates by FAISS cosine similarity
+        # before fetching details
+        from full_pipeline_vector import run_pipeline
+        # Arrival-order (fallback): selects patents by SerpAPI return order
+        # from full_pipeline_cached import run_pipeline
+        # ────────────────────────────────────────────────────────────────────
 
         start_time = time.time()
 

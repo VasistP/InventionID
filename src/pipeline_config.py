@@ -25,7 +25,7 @@ MODEL_ANALYSIS = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 NUM_SEARCH_QUERIES = 15
 
 # Maximum patent results returned per query (Google Patents via SerpAPI)
-MAX_RESULTS_PER_QUERY = 10
+MAX_RESULTS_PER_QUERY = 20
 
 # Parallel SerpAPI search workers
 MAX_SEARCH_CONCURRENT = 5
@@ -36,7 +36,7 @@ SERPAPI_DELAY = 0.2
 
 # ── Analysis ──────────────────────────────────────────────────────────────────
 # How many patents to fetch full details for (Stage 4)
-MAX_PATENTS_TO_FETCH = 20
+MAX_PATENTS_TO_FETCH = 40
 
 # How many patents to run LLM analysis on (Stage 5)
 # Must be <= MAX_PATENTS_TO_FETCH

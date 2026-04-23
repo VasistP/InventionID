@@ -1,13 +1,21 @@
 """
-Full Patent Search Pipeline with Prompt-Cached Invention Agent
+Full Patent Search Pipeline — Vector-Ranked Variant
 
-Drop-in replacement for full_pipeline_integrated_Pranav.py.
-Key change: Stage 1 uses InventionExtractionAgentCached which
-  - caches the entire document as a system prompt prefix (no chunking)
-  - accumulates ReAct reasoning across iterations in multi-turn conversation
-  - uses Claude prompt caching via the Bedrock API
+Identical to full_pipeline_cached.py except for Stage 3b:
+after SerpAPI returns all candidates, every patent and paper is
+embedded with Amazon Titan Embed v2 and scored against the invention
+description via FAISS cosine similarity.  Only the top-ranked
+candidates proceed to Stage 4 (detail fetch) and Stage 5 (LLM analysis),
+replacing the previous arrival-order slice.
 
-All other stages (2-6) are identical to the original pipeline.
+Embeddings are saved to a local temp directory and deleted immediately
+after ranking — nothing extra is uploaded to S3.
+
+To switch the backend to this version, change one line in
+backend/pipeline_runner.py:
+    from full_pipeline_vector import run_pipeline   # ← this file
+    # from full_pipeline_cached import run_pipeline  # ← arrival-order
+Then: sudo systemctl restart patent-agent-api
 """
 import boto3
 import json
@@ -17,7 +25,7 @@ import os
 from datetime import datetime
 from prompt_templates import PromptTemplates, get_invention_description
 from invention_agent_cached import InventionExtractionAgentCached
-from utils.parallel_search import parallel_search_queries
+from utils.parallel_search import parallel_search_queries, parallel_scholar_queries
 from utils.rate_limiter import BedrockRateLimiter, CircuitBreaker, invoke_bedrock_with_retry
 from textractChunkingv2 import extract_text_from_s3_by_sections, normalize_textract_chunks
 from pipeline_config import (
@@ -63,7 +71,7 @@ def _init_components():
 
 
 # ============================================================
-# PATENT SEARCHER (SerpAPI) 
+# PATENT SEARCHER (SerpAPI)
 # ============================================================
 
 class PatentSearcher:
@@ -87,6 +95,7 @@ class PatentSearcher:
                 "engine": "google_patents",
                 "q": query,
                 "api_key": self.api_key,
+                "num": min(max_results, 100),
             }
             time.sleep(self.delay)
             search = self.GoogleSearch(params)
@@ -156,6 +165,38 @@ class PatentSearcher:
             print(f"    SerpAPI error for {patent_number}: {e}")
             return {"patent_number": patent_number, "error": str(e)}
 
+    def search_scholar(self, query: str, max_results: int = 10) -> list:
+        if not self.GoogleSearch:
+            return []
+        try:
+            params = {
+                "engine": "google_scholar",
+                "q": query,
+                "api_key": self.api_key,
+            }
+            time.sleep(self.delay)
+            search = self.GoogleSearch(params)
+            results = search.get_dict()
+            return self._parse_results_paper(results, max_results)
+        except Exception as e:
+            print(f"    SerpAPI error: {e}")
+            return []
+
+    def _parse_results_paper(self, data: dict, max_results: int) -> list:
+        papers = []
+        for result in data.get("organic_results", [])[:max_results]:
+            title = result.get("title", "")
+            if not title:
+                continue
+            paper = {
+                "title": title,
+                "url": result.get("link", ""),
+                "publication_info": result.get("publication_info", {}).get("summary", ""),
+                "abstract": "",  # fetched later by scrapper_2
+            }
+            papers.append(paper)
+        return papers
+
 
 # ============================================================
 # LLM CALL FUNCTIONS
@@ -164,7 +205,6 @@ class PatentSearcher:
 
 class JsonParseExhaustedError(Exception):
     """Raised when all JSON-parse retry attempts are exhausted."""
-    pass
 
 
 def parse_json(text):
@@ -216,7 +256,6 @@ def call_bedrock_json(prompt, max_tokens=4000, model_id=MODEL_ANALYSIS, max_pars
 
         print(f"  JSON parse failed (attempt {attempt}/{max_parse_retries}), requesting fix...")
 
-        # Build a multi-turn conversation so the LLM sees its bad output
         messages.append({"role": "assistant", "content": response_text})
         messages.append({
             "role": "user",
@@ -232,20 +271,18 @@ def call_bedrock_json(prompt, max_tokens=4000, model_id=MODEL_ANALYSIS, max_pars
     )
 
 
-
 # ============================================================
 # PIPELINE STAGES
 # ============================================================
 
 def stage_1_extract_invention(sections):
-    """Stage 1: Extract invention using cached ReAct agent (section-wise chunks)"""
+    """Stage 1: Extract invention using cached ReAct agent."""
     print("\n" + "="*60)
     print("STAGE 1: INVENTION EXTRACTION (ReAct Agent + Prompt Caching)")
     print("="*60)
 
     result = invention_agent.run(sections)
 
-    # Save agent logs locally
     log_file = invention_agent.save_logs()
     print(f"  Agent logs saved: {log_file}")
 
@@ -258,13 +295,12 @@ def stage_1_extract_invention(sections):
 
 
 def stage_2_generate_queries(invention):
-    """Stage 2: Generate search queries (using Sonnet)"""
+    """Stage 2: Generate search queries."""
     print("\n" + "="*60)
     print("STAGE 2: GENERATE SEARCH QUERIES")
     print("="*60)
 
     prompt = PromptTemplates.generate_search_queries(invention, num_queries=NUM_SEARCH_QUERIES)
-    print(prompt)
     queries = call_bedrock_json(prompt, max_tokens=500, model_id=MODEL_QUERY_GEN)
 
     if queries:
@@ -281,13 +317,12 @@ def stage_3_search_patents(queries, max_concurrent: int = MAX_SEARCH_CONCURRENT)
     print("STAGE 3: PATENT SEARCH (SerpAPI, parallel)")
     print("="*60)
 
-    target_queries = queries
     all_patents = []
     seen = set()
 
     results_by_query = parallel_search_queries(
         patent_searcher,
-        target_queries,
+        queries,
         max_results_per_query=MAX_RESULTS_PER_QUERY,
         max_concurrent=max_concurrent,
     )
@@ -304,8 +339,206 @@ def stage_3_search_patents(queries, max_concurrent: int = MAX_SEARCH_CONCURRENT)
     return all_patents
 
 
+def stage_3_search_scholar(queries, max_concurrent: int = MAX_SEARCH_CONCURRENT):
+    """Stage 3: Search Google Scholar via SerpAPI (parallel)."""
+    print("\n" + "="*60)
+    print("STAGE 3: SCHOLAR SEARCH (SerpAPI, parallel)")
+    print("="*60)
+
+    all_papers = []
+    seen_titles: set = set()
+
+    results_by_query = parallel_scholar_queries(
+        patent_searcher,
+        queries,
+        max_results_per_query=5,
+        max_concurrent=max_concurrent,
+    )
+
+    for query, results in results_by_query:
+        print(f"  Merging results for: {query!r}")
+        for p in results:
+            t = p.get("title", "").lower()
+            if t and t not in seen_titles:
+                seen_titles.add(t)
+                all_papers.append(p)
+
+    print(f"  Total unique papers: {len(all_papers)}")
+    return all_papers
+
+
+def stage_3b_rank_by_similarity(invention, patents, papers):
+    """
+    Stage 3b: Re-rank all SerpAPI candidates by cosine similarity to the
+    invention description before deciding which ones to fetch/analyze.
+
+    Uses Amazon Titan Embed v2 (same model as the RAG pipeline) with
+    faiss.IndexFlatIP on L2-normalized vectors, which equals cosine similarity.
+
+    Embeddings are written to a local OS temp directory and deleted in the
+    finally block — nothing is sent to S3 and no files persist after this stage.
+
+    Returns (ranked_patents, ranked_papers) sorted highest-similarity first,
+    each item having a new 'similarity_score' field added.
+    """
+    import numpy as np
+    import faiss
+    import tempfile
+    import shutil
+    from concurrent.futures import ThreadPoolExecutor
+    from summarization import embed_text_titan
+
+    print("\n" + "="*60)
+    print("STAGE 3b: VECTOR SIMILARITY RANKING")
+    print("="*60)
+
+    tmp_dir = tempfile.mkdtemp(prefix="patent_embeddings_")
+    try:
+        # Build a rich invention query string from all extracted fields
+        inv_text = " ".join(filter(None, [
+            invention.get("invention_name", ""),
+            invention.get("technical_description", ""),
+            invention.get("solution_approach", ""),
+            " ".join(invention.get("key_technical_features", [])),
+            " ".join(invention.get("inventor_keywords", [])),
+        ]))
+
+        print(f"  Embedding invention description...")
+        inv_vec = np.array([embed_text_titan(inv_text)], dtype=np.float32)
+        np.save(os.path.join(tmp_dir, "invention.npy"), inv_vec)
+
+        def _rank(items, text_fn, label):
+            """Embed items, score against invention vector, return sorted list."""
+            if not items:
+                return items
+
+            print(f"  Embedding {len(items)} {label} candidates (parallel)...")
+
+            def embed_one(item):
+                text = text_fn(item).strip()
+                if not text:
+                    text = label  # fallback so embed call never gets empty string
+                return embed_text_titan(text)
+
+            with ThreadPoolExecutor(max_workers=MAX_SEARCH_CONCURRENT) as executor:
+                vecs = list(executor.map(embed_one, items))
+
+            mat = np.array(vecs, dtype=np.float32)
+            np.save(os.path.join(tmp_dir, f"{label}.npy"), mat)
+
+            # IndexFlatIP on normalized vectors = cosine similarity
+            index = faiss.IndexFlatIP(mat.shape[1])
+            index.add(mat)
+            scores, indices = index.search(inv_vec, len(items))
+
+            for score, idx in zip(scores[0], indices[0]):
+                items[idx]["similarity_score"] = round(float(score), 4)
+
+            ranked = sorted(items, key=lambda x: x.get("similarity_score", 0.0), reverse=True)
+
+            print(f"  Top 5 {label}s by similarity score:")
+            for item in ranked[:5]:
+                ident = item.get("patent_number") or item.get("title", "")[:55]
+                print(f"    [{item['similarity_score']:.4f}] {ident}")
+
+            return ranked
+
+        ranked_patents = _rank(
+            patents,
+            lambda p: f"{p.get('title', '')}. {p.get('abstract', '')}",
+            "patent",
+        )
+        ranked_papers = _rank(
+            papers,
+            lambda p: f"{p.get('title', '')}. {p.get('abstract', '')}",
+            "paper",
+        )
+
+        print(f"  Ranking complete — {len(ranked_patents)} patents, {len(ranked_papers)} papers")
+        return ranked_patents, ranked_papers
+
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        print(f"  Local embeddings deleted.")
+
+
+def stage_4b_rerank_by_full_text(invention, patents):
+    """
+    Stage 4b: Re-rank fetched patents by cosine similarity using full text
+    (title + full abstract + claim_1) rather than the SerpAPI snippet used in Stage 3b.
+
+    Operates on the ~40 patents returned by Stage 4 (already enriched with claim text).
+    Returns the list sorted highest-similarity first, with similarity_score updated.
+    Falls back to the original order on any error.
+    """
+    import numpy as np
+    import faiss
+    import tempfile
+    import shutil
+    from concurrent.futures import ThreadPoolExecutor
+    from summarization import embed_text_titan
+
+    if not patents:
+        return patents
+
+    print("\n" + "="*60)
+    print("STAGE 4b: FULL-TEXT VECTOR RE-RANKING")
+    print("="*60)
+
+    tmp_dir = tempfile.mkdtemp(prefix="patent_fulltext_embeddings_")
+    try:
+        inv_text = " ".join(filter(None, [
+            invention.get("invention_name", ""),
+            invention.get("technical_description", ""),
+            invention.get("solution_approach", ""),
+            " ".join(invention.get("key_technical_features", [])),
+            " ".join(invention.get("inventor_keywords", [])),
+        ]))
+
+        print(f"  Embedding invention description...")
+        inv_vec = np.array([embed_text_titan(inv_text)], dtype=np.float32)
+        np.save(os.path.join(tmp_dir, "invention_fulltext.npy"), inv_vec)
+
+        print(f"  Embedding {len(patents)} patents by full text (title + abstract + claim_1)...")
+
+        def embed_one(p):
+            text = " ".join(filter(None, [
+                p.get("title", ""),
+                p.get("abstract", ""),
+                p.get("claim_1", ""),
+            ])).strip() or "patent"
+            return embed_text_titan(text)
+
+        with ThreadPoolExecutor(max_workers=MAX_SEARCH_CONCURRENT) as executor:
+            vecs = list(executor.map(embed_one, patents))
+
+        mat = np.array(vecs, dtype=np.float32)
+        np.save(os.path.join(tmp_dir, "patents_fulltext.npy"), mat)
+
+        index = faiss.IndexFlatIP(mat.shape[1])
+        index.add(mat)
+        scores, indices = index.search(inv_vec, len(patents))
+
+        for score, idx in zip(scores[0], indices[0]):
+            patents[idx]["similarity_score"] = round(float(score), 4)
+
+        ranked = sorted(patents, key=lambda p: p.get("similarity_score", 0.0), reverse=True)
+
+        print(f"  Top 5 patents by full-text similarity:")
+        for p in ranked[:5]:
+            ident = p.get("patent_number") or p.get("title", "")[:55]
+            has_claim = "✓ claim_1" if p.get("claim_1") else "  snippet only"
+            print(f"    [{p['similarity_score']:.4f}] {ident}  ({has_claim})")
+
+        return ranked
+
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        print(f"  Local embeddings deleted.")
+
+
 def stage_4_fetch_details(patents, max_concurrent: int = MAX_SEARCH_CONCURRENT):
-    """Stage 4: Fetch patent details (parallel)"""
+    """Stage 4: Fetch patent details (parallel)."""
     print("\n" + "="*60)
     print("STAGE 4: FETCH PATENT DETAILS (parallel)")
     print("="*60)
@@ -315,6 +548,7 @@ def stage_4_fetch_details(patents, max_concurrent: int = MAX_SEARCH_CONCURRENT):
 
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
+    # After Stage 3b the list is similarity-sorted; slice gives top-ranked patents
     candidates = patents[:MAX_PATENTS_TO_FETCH]
     cached = []
     to_fetch = []
@@ -344,7 +578,7 @@ def stage_4_fetch_details(patents, max_concurrent: int = MAX_SEARCH_CONCURRENT):
             for future in as_completed(future_to_patent):
                 fetched.append(future.result())
 
-    # Preserve original order
+    # Preserve original (similarity) order
     fetched_map = {p.get('patent_number', ''): p for p in fetched}
     detailed_patents = []
     for p in candidates:
@@ -355,13 +589,104 @@ def stage_4_fetch_details(patents, max_concurrent: int = MAX_SEARCH_CONCURRENT):
             detailed_patents.append(p)
 
     print(f"  Got details for {len(detailed_patents)} patents")
+
+    # Scrape full abstract + claim 1 from each patent's Google Patents page.
+    # Results overwrite the SerpAPI snippet only when non-empty, so the snippet
+    # remains as a fallback for pages that fail to scrape.
+    from tools.patent_scraper import fetch_patent_full_text
+
+    print(f"  Scraping full text (abstract + claim 1) for {len(detailed_patents)} patents...")
+
+    def scrape_one(p):
+        url = p.get("url", "")
+        if not url:
+            return p
+        scraped = fetch_patent_full_text(url)
+        if not scraped.get("abstract") and not scraped.get("claim_1"):
+            return p
+        merged = dict(p)
+        if scraped.get("abstract"):
+            merged["abstract"] = scraped["abstract"]
+        if scraped.get("claim_1"):
+            merged["claim_1"] = scraped["claim_1"]
+        return merged
+
+    with ThreadPoolExecutor(max_workers=max_concurrent) as executor:
+        detailed_patents = list(executor.map(scrape_one, detailed_patents))
+
+    scraped_count = sum(1 for p in detailed_patents if p.get("claim_1"))
+    print(f"  Full text scrape complete — claim_1 populated for {scraped_count}/{len(detailed_patents)} patents.")
     return detailed_patents
 
 
-def stage_5_analyze_patents(invention, patents):
-    """Stage 5: Analyze patents (using Opus)"""
+def _fetch_scholar_paper_abstract(paper: dict) -> dict:
+    """Fetch abstract for a single Scholar paper using scrapper_2's fallback chain."""
+    import requests
+    from tools.scrapper_2 import (
+        extract_doi, extract_abstract,
+        _fetch_abstract_crossref, _fetch_abstract_ss_by_title,
+    )
+
+    url = paper.get("url", "")
+    title = paper.get("title", "")
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 Chrome/120.0 Safari/537.36"
+        )
+    }
+
+    doi = None
+    abstract = None
+
+    if url:
+        try:
+            r = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
+            if r.ok:
+                doi = extract_doi(r.url, r.text)
+                abstract = extract_abstract(r.text)
+        except requests.RequestException:
+            pass
+
+    if not abstract and doi:
+        abstract = _fetch_abstract_crossref(doi)
+
+    if not abstract:
+        abstract = _fetch_abstract_ss_by_title(title)
+
+    return {**paper, "abstract": abstract or "", "doi": doi or ""}
+
+
+def stage_4_fetch_scholar_details(papers: list, max_concurrent: int = MAX_SEARCH_CONCURRENT) -> list:
+    """Stage 4 (papers): Fetch abstracts for Google Scholar results in parallel."""
     print("\n" + "="*60)
-    print("STAGE 5: PATENT ANALYSIS (Opus)")
+    print("STAGE 4 (PAPERS): FETCH SCHOLAR ABSTRACTS (parallel)")
+    print("="*60)
+
+    if not papers:
+        return []
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    results = []
+    with ThreadPoolExecutor(max_workers=max_concurrent) as executor:
+        future_to_paper = {
+            executor.submit(_fetch_scholar_paper_abstract, p): p for p in papers
+        }
+        for future in as_completed(future_to_paper):
+            result = future.result()
+            status = "OK" if result.get("abstract") else "NO ABSTRACT"
+            print(f"  [{status}] {result.get('title', '')[:60]}")
+            results.append(result)
+
+    print(f"  Abstracts fetched: {sum(1 for r in results if r.get('abstract'))}/{len(results)}")
+    return results
+
+
+def stage_5_analyze_patents(invention, patents):
+    """Stage 5: Analyze top-ranked patents with LLM."""
+    print("\n" + "="*60)
+    print("STAGE 5: PATENT ANALYSIS")
     print("="*60)
 
     if not patents:
@@ -379,12 +704,64 @@ def stage_5_analyze_patents(invention, patents):
     return analysis or []
 
 
-def stage_6_generate_report(invention, patents, analysis, patentability=None):
-    """Stage 6: Generate final report"""
+def stage_5_analyze_scholar_papers(invention, papers):
+    """Stage 5 (papers): Analyze top-ranked scholar papers for prior art relevance."""
+    print("\n" + "="*60)
+    print("STAGE 5 (PAPERS): SCHOLAR PAPER ANALYSIS")
+    print("="*60)
+
+    if not papers:
+        return []
+
+    inv_desc = get_invention_description(invention)
+
+    papers_text = "\n".join(
+        f"\nPaper {i}:\n"
+        f"Title: {p.get('title', 'N/A')}\n"
+        f"Publication Info: {p.get('publication_info', 'N/A')}\n"
+        f"Abstract: {p.get('abstract', 'N/A')}..."
+        for i, p in enumerate(papers[:5], 1)
+    )
+
+    prompt = f"""Analyze these academic papers' relevance to the invention as prior art.
+
+INVENTION:
+{inv_desc}
+
+PAPERS TO ANALYZE:
+{papers_text}
+
+For EACH paper, provide:
+1. Relevance score (0.0 to 1.0)
+2. Classification: "blocking" (very similar, published before), "relevant" (overlapping techniques), or "related" (same domain but different approach)
+3. Key similarities
+4. Key differences
+5. Brief analysis (2-3 sentences)
+
+IMPORTANT: Return ONLY a JSON array with no other text. One object per paper in the same order.
+Keys per object: "title", "relevance_score", "classification", "similarities", "differences", "analysis"
+"""
+
+    analysis = call_bedrock_json(prompt, max_tokens=3000, model_id=MODEL_ANALYSIS)
+
+    if analysis:
+        print(f"  Analyzed {len(analysis)} papers:")
+        for a in analysis:
+            print(f"    {a.get('title', '')[:60]}: {a.get('classification')} ({a.get('relevance_score')})")
+
+    return analysis or []
+
+
+def stage_6_generate_report(invention, patents, analysis, patentability=None, detailed_papers=None, analysis_papers=None):
+    """Stage 6: Generate final report."""
     print("\n" + "="*60)
     print("STAGE 6: FINAL REPORT")
     print("="*60)
 
+    detailed_papers = detailed_papers or []
+    analysis_papers = analysis_papers or []
+
+    # --- Patents ---
     analysis_map = {a['patent_number']: a for a in analysis if a.get('patent_number')}
 
     results = []
@@ -402,6 +779,15 @@ def stage_6_generate_report(invention, patents, analysis, patentability=None):
         -(p.get("analysis", {}).get("relevance_score", 0))
     ))
 
+    # --- Scholar papers ---
+    paper_analysis_map = {a['title']: a for a in analysis_papers if a.get('title')}
+    paper_results = []
+    for p in detailed_papers:
+        result = {**p}
+        if p.get('title', '') in paper_analysis_map:
+            result['analysis'] = paper_analysis_map[p['title']]
+        paper_results.append(result)
+
     # Embed patentability assessment into invention
     invention_out = {**invention}
     if patentability:
@@ -414,7 +800,10 @@ def stage_6_generate_report(invention, patents, analysis, patentability=None):
         "blocking": len([a for a in analysis if a.get('classification') == 'blocking']),
         "relevant": len([a for a in analysis if a.get('classification') == 'relevant']),
         "related": len([a for a in analysis if a.get('classification') == 'related']),
-        "patents": results
+        "patents": results,
+        "scholar_papers_found": len(detailed_papers),
+        "scholar_papers_analyzed": len(analysis_papers),
+        "scholar_papers": paper_results,
     }
 
     print(f"  Summary:")
@@ -422,6 +811,8 @@ def stage_6_generate_report(invention, patents, analysis, patentability=None):
     print(f"    Blocking: {report['blocking']}")
     print(f"    Relevant: {report['relevant']}")
     print(f"    Related: {report['related']}")
+    print(f"    Scholar papers found: {report['scholar_papers_found']}")
+    print(f"    Scholar papers analyzed: {report['scholar_papers_analyzed']}")
 
     return report
 
@@ -432,16 +823,8 @@ def stage_6_generate_report(invention, patents, analysis, patentability=None):
 
 def run_pipeline(bucket, pdf_key, max_pipeline_retries=2, progress_callback=None):
     """
-    Run the pipeline with automatic restart on persistent JSON parse failures.
-
-    If a stage exhausts all JSON-parse retries, the entire pipeline is
-    restarted from scratch (up to `max_pipeline_retries` total attempts).
-
-    Parameters
-    ----------
-    progress_callback : callable, optional
-        If provided, called with a dict at each stage boundary:
-        {"stage": int, "stage_name": str, "status": str, ...}
+    Run the vector-ranked pipeline with automatic restart on persistent JSON
+    parse failures (up to max_pipeline_retries total attempts).
     """
     _init_components()
     for attempt in range(1, max_pipeline_retries + 1):
@@ -458,21 +841,19 @@ def run_pipeline(bucket, pdf_key, max_pipeline_retries=2, progress_callback=None
 
 
 def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
-    """Run complete pipeline (single attempt)."""
+    """Run complete vector-ranked pipeline (single attempt)."""
     def _emit(stage, stage_name, status="running", **extra):
         if progress_callback:
             progress_callback({"stage": stage, "stage_name": stage_name, "status": status, **extra})
 
     print("\n" + "#"*60)
-    print("PATENT PRIOR ART SEARCH PIPELINE (Prompt-Cached)")
+    print("PATENT PRIOR ART SEARCH PIPELINE (Vector-Ranked)")
     print("#"*60)
     print(f"Input: s3://{bucket}/{pdf_key}")
-    print(f"Models: Sonnet (agent w/ caching), Opus (analysis)")
 
-    # Extract text as section-wise chunks using Textract Layout
+    # Extract text as section-wise chunks
     _emit(0, "Extracting text from PDF")
     print("  Starting Textract Layout extraction (section-wise)...")
-    _t0 = time.time()
     chunks = extract_text_from_s3_by_sections(bucket, pdf_key)
     if not chunks:
         _emit(-1, "Textract extraction failed", status="error", error="Textract Layout extraction failed")
@@ -483,11 +864,9 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
         return {"error": "No sections extracted from document"}
     print(f"  Extracted {len(sections)} sections")
 
-    # Stage 1: Extract invention (cached ReAct agent — section-wise chunks)
+    # Stage 1: Extract invention
     _emit(1, "Extracting invention details", detail=f"{len(sections)} sections")
     inventions, agent_log_file, patentability = stage_1_extract_invention(sections)
-    print(f"  [TIMER] Stage 1 elapsed: {time.time() - _t0:.1f}s")
-
     if not inventions:
         _emit(-1, "No inventions found", status="error", error="No inventions found")
         return {"error": "No inventions found"}
@@ -498,71 +877,111 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
     patents = []
     detailed = []
     analysis = []
+    papers = []
+    detailed_papers = []
+    analysis_arxiv = []
 
     # Stage 2: Generate queries
     _emit(2, "Generating search queries")
     try:
         queries = stage_2_generate_queries(invention)
     except JsonParseExhaustedError:
-        raise  # let pipeline retry wrapper handle it
+        raise
     except Exception as e:
         print(f"  Stage 2 failed: {e}")
 
     if not queries:
         print("  WARNING: No search queries generated — skipping patent search stages")
     else:
-        # exit()
-        # Stage 3: Search patents
-        _emit(3, "Searching patents", detail=f"{len(queries)} queries")
+        # Stage 3: Search patents + scholar papers
+        _emit(3, "Searching patents and papers", detail=f"{len(queries)} queries")
         try:
             patents = stage_3_search_patents(queries)
-            for p in patents:
-                print(f"  {p.get('patent_number', 'N/A')}: {p.get('title', 'N/A')}")
         except Exception as e:
-            print(f"  Stage 3 failed: {e}")
+            print(f"  Stage 3 patent search failed: {e}")
+        try:
+            papers = stage_3_search_scholar(queries)
+        except Exception as e:
+            print(f"  Stage 3 scholar search failed: {e}")
 
-        if not patents:
-            print("  WARNING: No patents found — skipping analysis stages")
+        if patents or papers:
+            # Stage 3b: Re-rank all candidates by vector similarity before fetching details
+            _emit(3, "Ranking candidates by vector similarity")
+            try:
+                patents, papers = stage_3b_rank_by_similarity(invention, patents, papers)
+            except Exception as e:
+                print(f"  Stage 3b vector ranking failed: {e} — falling back to arrival order.")
+
+        if not patents and not papers:
+            print("  WARNING: No patents or papers found — skipping analysis stages")
         else:
-            # Stage 4: Fetch details
-            exit()
-            _emit(4, "Fetching patent details", detail=f"{len(patents)} patents")
+            # Stage 4: Fetch patent details + scholar abstracts
+            # patents list is now similarity-sorted; [:MAX_PATENTS_TO_FETCH] gives top-ranked
+            _emit(4, "Fetching details", detail=f"{len(patents)} patents, {len(papers)} papers")
             try:
                 detailed = stage_4_fetch_details(patents)
             except Exception as e:
-                print(f"  Stage 4 failed: {e}")
-                detailed = patents  # fall back to basic patent info
+                print(f"  Stage 4 patent details failed: {e}")
+                detailed = patents
+            try:
+                detailed_papers = stage_4_fetch_scholar_details(papers)
+            except Exception as e:
+                print(f"  Stage 4 scholar detail fetch failed: {e}")
+                detailed_papers = papers
 
-            # Stage 5: Analyze
-            _emit(5, "Analyzing patents", detail=f"{len(detailed)} patents")
+            # Stage 4b: Re-rank fetched patents by full text (abstract + claim_1) before analysis
+            _emit(4, "Re-ranking by full text (abstract + claims)")
+            try:
+                detailed = stage_4b_rerank_by_full_text(invention, detailed)
+            except Exception as e:
+                print(f"  Stage 4b full-text re-rank failed: {e} — keeping Stage 4 order.")
+
+            # Stage 5: Analyze top-ranked patents + papers
+            _emit(5, "Analyzing prior art", detail=f"{len(detailed)} patents, {len(detailed_papers)} papers")
             try:
                 analysis = stage_5_analyze_patents(invention, detailed)
             except JsonParseExhaustedError:
-                raise  # let pipeline retry wrapper handle it
+                raise
             except Exception as e:
-                print(f"  Stage 5 failed: {e}")
+                print(f"  Stage 5 patent analysis failed: {e}")
+            try:
+                analysis_arxiv = stage_5_analyze_scholar_papers(invention, detailed_papers)
+            except JsonParseExhaustedError:
+                raise
+            except Exception as e:
+                print(f"  Stage 5 paper analysis failed: {e}")
 
-    # Stage 6: Report (always runs — produces partial report with whatever we have)
+    # Stage 6: Report
     _emit(6, "Generating final report")
-    report = stage_6_generate_report(invention, detailed or patents, analysis, patentability=patentability)
+    report = stage_6_generate_report(
+        invention,
+        detailed or patents,
+        analysis,
+        patentability=patentability,
+        detailed_papers=detailed_papers,
+        analysis_papers=analysis_arxiv,
+    )
 
     # Attach run metadata
     report["run_metadata"] = {
-        "pipeline_version": "1.0.0",
+        "pipeline_version": "2.0.0-vector-ranked",
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "models": {
             "extraction": MODEL_EXTRACTION,
             "query_generation": MODEL_QUERY_GEN,
             "patent_analysis": MODEL_ANALYSIS,
+            "embedding": "amazon.titan-embed-text-v2:0",
         },
         "retrieval_config": {
             "max_patents_fetched": MAX_PATENTS_TO_FETCH,
             "max_patents_analyzed": MAX_PATENTS_TO_ANALYZE,
             "max_search_queries": NUM_SEARCH_QUERIES,
+            "ranking": "faiss-cosine-similarity",
+            "full_text_rerank": True,
         },
     }
 
-    # Save to S3
+    # Save report to S3
     output_key = pdf_key.replace('input/', 'results/').replace('.pdf', '_report.json')
     try:
         s3.put_object(
@@ -603,7 +1022,7 @@ if __name__ == "__main__":
         response = s3.list_objects_v2(Bucket=BUCKET, Prefix='input/')
         for obj in response.get('Contents', []):
             print(f"  {obj['Key']}")
-        print(f"\nUsage: python3 full_pipeline_cached.py <pdf_key>")
+        print(f"\nUsage: python3 full_pipeline_vector.py <pdf_key>")
     else:
         pdf_key = sys.argv[1]
         report = run_pipeline(BUCKET, pdf_key)

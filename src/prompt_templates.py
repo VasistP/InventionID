@@ -27,52 +27,386 @@ class PromptTemplates:
         Returns:
             Formatted prompt string
         """
-        return f"""You are a patent search expert. Generate {num_queries} highly targeted search queries to find prior art for this invention. Your queries will be used verbatim on Google Patents.
-
+        return f"""You are a patent agent generating Google Patent search queries to find prior art for this invention.
+ 
 INVENTION: {invention_data.get('invention_name', 'Unknown')}
-
+ 
 TECHNICAL DESCRIPTION:
 {invention_data.get('technical_description', 'N/A')}
-
+ 
 PROBLEM STATEMENT:
 {invention_data.get('problem_statement', 'N/A')}
-
+ 
 SOLUTION APPROACH:
 {invention_data.get('solution_approach', 'N/A')}
-
+ 
 KEY TECHNICAL FEATURES:
 {', '.join(invention_data.get('key_technical_features', []))}
+ 
+Generate exactly {num_queries} Google Patent search queries by following ALL steps below.
+ 
+## STEP 1: DETERMINE STATUTORY CATEGORY
+Classify the invention into one or more of the four patent-eligible categories:
+- Process: a method, sequence of steps, or procedure
+- Machine: a device or apparatus with specific components
+- Manufacture: an article or product made by a process
+- Composition of matter: a new material, mixture, or compound
+ 
+Identify the PRIMARY category. This determines query focus:
+- Composition of Matter or Manufacture: "does this material/product exist?" then "has anyone made it this way?"
+- Process: "has anyone used these steps before?" then "on these materials/inputs?"
+- Machine: "does this device exist?" then "has anyone used these components this way?"
+ 
+## STEP 2: EXTRACT KEY TERMS
+List every significant technical term from the extraction. Group them into:
+- Materials/Components
+- Structure/Architecture/Configuration
+- Process/Method/Steps
+- Properties/Function/Performance
+- Problem/Application/Field
+ 
+CRITICAL: Every query term MUST trace back to this list OR to a field-standard synonym from Step 3.
+ 
+## STEP 3: EXPAND WITH FIELD-STANDARD SYNONYMS AND BUILD SYNONYM CHAINS
+For each key concept in Step 2, identify the standard technical term used in the broader field, even if the extraction does not use that exact word. A patent agent uses domain knowledge to recognize that a concept described in the extraction may be known by a different established term in the literature and patent databases.
+ 
+For each key concept, build a **synonym chain** — a group of interchangeable terms that all refer to the same or closely related concept. These chains will be used with OR inside parentheses in queries.
+ 
+**Target chain length: 3-5 terms per chain when synonyms exist.** Do not settle for 2-term chains if more valid synonyms exist. Only use shorter chains when the concept genuinely has fewer field-standard synonyms.
+ 
+General principles for building chains:
+- Include the extraction's term + broader/narrower field-standard terms
+- Include both the specific technical name and its common generic equivalent
+- Include different word forms if patents use them (noun vs adjective, hyphenated vs non-hyphenated)
+- Include acronyms alongside their spelled-out forms
+- Group together only terms that a patent examiner would recognize as describing the same concept
+ 
+**Method/technique families — RELAXED SUBSTITUTION RULE:**
+When the concept is a method, technique, or analytical approach, include RELATED techniques in the same family, not just strict synonyms. Patents often address the same underlying problem using different but related techniques, so prior art crosses technique boundaries.
+ 
+For method concepts, ask: "Would a patent examiner reviewing prior art for this invention recognize these techniques as addressing the same underlying design or analysis problem?" If yes, they belong in the same OR chain even if the techniques differ in specifics.
+ 
+This applies to method families like optimization methods, analysis methods, synthesis methods, fabrication methods, modeling methods, and control methods — where multiple named techniques share a common purpose.
+ 
+Only use synonyms and related techniques you are confident are field-standard. Do NOT invent terms.
+ 
+## STEP 3b: USE SYNONYM CHAINS IN QUERIES
+When a concept has multiple field-standard names, wrap the chain in parentheses with OR:
+concept_X AND (synonym1 OR synonym2 OR synonym3) AND concept_Y
+ 
+This catches patents using different vocabulary for the same idea. Use synonym chaining especially in Rounds 4 and 5 where you are searching concepts, not specific materials.
+ 
+**CRITICAL: OR chains must contain ONLY true synonyms — terms that are interchangeable and describe the same underlying concept.**
+ 
+Before writing an OR chain, ask: "Could I substitute any term in this chain for any other without changing what I'm searching for?" If yes, the chain is valid. If no, the terms belong in separate AND clauses, not an OR.
+ 
+Terms belong in different AND clauses (not OR) when they represent different aspects of the invention — such as a component vs a measurement, a material vs a process, a cause vs an effect, or an object vs an attribute.
+ 
+## STEP 3c: DISAMBIGUATE VAGUE TERMS
+Some words are too generic on their own and will return irrelevant results. When a concept term is vague, it MUST always be paired with WHAT it applies to.
+ 
+Generic concept words (e.g., optimization, analysis, modeling, simulation, control, improvement, design, characterization) are ambiguous on their own because they appear across every technical field.
+ 
+**MANDATORY: Never use a generic concept word alone in a query.** The preferred strategy is to build a synonym chain of quoted compound phrases where the generic word is prefixed by a specific modifier.
+ 
+Strategy 1 (preferred) — Build a chain of quoted compound phrases:
+Wrap each variant as a 2-word quoted phrase combining a modifier with the generic word. A good chain has 3-5 quoted compound phrases.
+ 
+Strategy 2 — Pair the vague word with the specific domain object via AND:
+Connect the vague word to the specific thing being acted upon.
+ 
+Strategy 3 — Combine both: use a compound phrase chain AND pair with the domain object.
+ 
+**Quoted compound phrases inside OR chains are ENCOURAGED, not discouraged.** A chain like `("compound_A" OR "compound_B" OR "compound_C" OR "compound_D")` counts as ONE concept for the precision rule, not four separate quoted phrases.
+ 
+If a query contains a generic concept word that is not part of a synonym chain AND not paired with its domain object in the same query, the query FAILS validation and must be rewritten.
+ 
+## STEP 4: IDENTIFY NOVELTY
+Read the problem statement and solution approach to rank what is MOST novel vs LEAST novel:
+- What does the extraction say is "already known," "existing," "conventional," or "prior work"? → LEAST novel
+- What does the extraction say is "new," "novel," "underexplored," "first," "unlike," or "distinct from"? → MOST novel
+ 
+Spend MORE queries on what is novel. Spend FEWER on what is known.
+ 
+### STEP 4b: IDENTIFY DUAL NOVELTY AXES
+Most inventions have TWO independent novelty axes. You must identify both and allocate queries to each:
+ 
+1. **WHAT axis (the thing itself):** The physical device, material, structure, or composition being claimed. Queries search: "does this thing exist?"
+ 
+2. **HOW axis (the method of discovery/creation):** The process, optimization method, analysis technique, or design methodology that produced or characterizes the thing. Queries search: "has anyone used this method before?"
+ 
+Examples of HOW axis signals in an extraction:
+- The title contains a method verb (Optimizing, Designing, Synthesizing, Analyzing, Simulating)
+- The solution approach describes a computational, analytical, or experimental methodology
+- Design tools, software, or algorithms are provided
+- The extraction emphasizes a discovery, finding, or characterization
+ 
+CRITICAL: If the HOW axis exists, it MUST receive its own dedicated queries, not just be mentioned as a secondary term in WHAT-axis queries. Prior art on the HOW axis is often in a completely different field and will not be found by WHAT-axis queries.
+ 
+## STEP 5: BUILD QUERIES ACROSS ROUNDS
+ 
+Allocate {num_queries} queries across these rounds based on statutory category and novelty. Not all rounds need equal queries. Skip rounds that don't apply.
+ 
+**Round 1 — Landscape:** Search the specific materials, components, or device type to map what already exists.
+ 
+**Round 2 — Function/Property:** Combine materials/components with the target properties, functions, or problems solved.
+ 
+**Round 3 — Process/Method:** Search the specific process steps, method, or technique. For process inventions, this is the core round.
+ 
+**Round 4 — Concept (drop specifics):** Replace specific materials/components with generic equivalents and search the underlying structural, architectural, or methodological concept. This is where hidden and distant prior art lives.
+ 
+**Round 5 — Broadest:** Search the design principle or method at its most abstract level. Include field-standard synonyms from Step 3 here.
+ 
+## QUERY FORMAT RULES
+- Use AND, OR, "", and () operators
+- Each term is MAXIMUM 2 words
+- **MANDATORY: Any multi-word phrase (2+ words) MUST be wrapped in double quotes.** Example: write "tip deflection" NOT tip deflection. Write "electrode width" NOT electrode width.
+- **MANDATORY: Every concept in a query MUST be connected by explicit AND.** Example: write `piezoelectric AND "unimorph actuator" AND electrode` NOT `piezoelectric unimorph actuator electrode`.
+- Use OR to group synonyms within parentheses
+- Use AND to connect concepts (always explicit, never implicit)
+- Typical query has 3-5 terms connected by AND
+- Do NOT use site:, -, or other advanced operators
+- ANCHORING RULE: Every query MUST include at least one highly specific technical phrase in "" quotes to prevent matching unrelated fields
+ 
+## PRECISION vs RECALL BALANCE
+Each standalone quoted phrase acts as a hard filter — stacking multiple standalone quoted phrases creates empty result sets.
+- Use MAXIMUM 1-2 standalone quoted phrases per query (phrases outside OR chains)
+- Quoted phrases INSIDE an OR chain do not count toward this limit — a full OR chain of quoted compounds counts as ONE concept
+- Fill the rest of the query with single keywords and OR synonym chains
+- If you have 3+ standalone quoted phrases, remove quotes from all but the most distinctive one
+- Target query structure: 3-4 AND concepts, where 1 is a standalone quoted anchor phrase and at least 1 is an OR synonym chain of 3-5 terms (single words or quoted compound phrases)
+ 
+## VALIDATION CHECK (perform before outputting)
+For every query you generate, verify:
+1. Every multi-word phrase has quotes around it
+2. Every concept is connected by explicit AND
+3. At least one quoted phrase exists for anchoring
+4. NO MORE than 2 STANDALONE quoted phrases (quoted compounds inside OR chains don't count)
+5. Every OR chain contains ONLY true synonyms — terms that describe the same concept. If terms belong to different categories, use AND instead of OR.
+6. OR chains contain 3-5 terms when valid synonyms exist (only shorter if the concept has fewer real synonyms)
+7. Any generic concept word (optimization, analysis, modeling, simulation, control, design, etc.) is either part of a compound-phrase OR chain, OR paired with its specific domain object via AND — never alone
+8. Query has 3-4 AND-connected concepts total
+If any query fails these checks, rewrite it before outputting.
+ 
+## OUTPUT FORMAT
+Output ONLY a Python list of query strings. No explanations, no reasoning, no commentary, no round labels.
+ 
+["query 1", "query 2", "query 3", ...]
+ 
+The list must contain exactly {num_queries} strings.
+"""
 
-INVENTOR KEYWORDS:
-{', '.join(invention_data.get('inventor_keywords', []))}
+#         return f"""You are a patent agent generating Google Patent search queries to find prior art for this invention.
+ 
+# INVENTION: {invention_data.get('invention_name', 'Unknown')}
+ 
+# TECHNICAL DESCRIPTION:
+# {invention_data.get('technical_description', 'N/A')}
+ 
+# PROBLEM STATEMENT:
+# {invention_data.get('problem_statement', 'N/A')}
+ 
+# SOLUTION APPROACH:
+# {invention_data.get('solution_approach', 'N/A')}
+ 
+# KEY TECHNICAL FEATURES:
+# {', '.join(invention_data.get('key_technical_features', []))}
+ 
+# Generate exactly {num_queries} Google Patent search queries by following ALL steps below.
+ 
+# ## STEP 1: DETERMINE STATUTORY CATEGORY
+# Classify the invention into one or more of the four patent-eligible categories:
+# - Process: a method, sequence of steps, or procedure
+# - Machine: a device or apparatus with specific components
+# - Manufacture: an article or product made by a process
+# - Composition of matter: a new material, mixture, or compound
+ 
+# Identify the PRIMARY category. This determines query focus:
+# - Composition of Matter or Manufacture: "does this material/product exist?" then "has anyone made it this way?"
+# - Process: "has anyone used these steps before?" then "on these materials/inputs?"
+# - Machine: "does this device exist?" then "has anyone used these components this way?"
+ 
+# ## STEP 2: EXTRACT KEY TERMS
+# List every significant technical term from the extraction. Group them into:
+# - Materials/Components
+# - Structure/Architecture/Configuration
+# - Process/Method/Steps
+# - Properties/Function/Performance
+# - Problem/Application/Field
+ 
+# CRITICAL: Every query term MUST trace back to this list OR to a field-standard synonym from Step 3.
+ 
+# ## STEP 3: EXPAND WITH FIELD-STANDARD SYNONYMS
+# For each key concept in Step 2, identify the standard technical term used in the broader field, even if the extraction does not use that exact word. A patent agent uses domain knowledge to recognize that a concept described in the extraction may be known by a different established term in the literature and patent databases.
+ 
+# Only use synonyms you are confident are field-standard. Do NOT invent terms.
+ 
+# ## STEP 4: IDENTIFY NOVELTY
+# Read the problem statement and solution approach to rank what is MOST novel vs LEAST novel:
+# - What does the extraction say is "already known," "existing," "conventional," or "prior work"? → LEAST novel
+# - What does the extraction say is "new," "novel," "underexplored," "first," "unlike," or "distinct from"? → MOST novel
+ 
+# Spend MORE queries on what is novel. Spend FEWER on what is known.
+ 
+# ## STEP 5: BUILD QUERIES ACROSS ROUNDS
+ 
+# Allocate {num_queries} queries across these rounds based on statutory category and novelty. Not all rounds need equal queries. Skip rounds that don't apply.
+ 
+# **Round 1 — Landscape:** Search the specific materials, components, or device type to map what already exists.
+ 
+# **Round 2 — Function/Property:** Combine materials/components with the target properties, functions, or problems solved.
+ 
+# **Round 3 — Process/Method:** Search the specific process steps, method, or technique. For process inventions, this is the core round.
+ 
+# **Round 4 — Concept (drop specifics):** Replace specific materials/components with generic equivalents and search the underlying structural, architectural, or methodological concept. This is where hidden and distant prior art lives.
+ 
+# **Round 5 — Broadest:** Search the design principle or method at its most abstract level. Include field-standard synonyms from Step 3 here.
+ 
+# ## QUERY FORMAT RULES
+# - Use AND, OR, "", and () operators
+# - Each term is MAXIMUM 2 words
+# - Use "" for exact multi-word phrases
+# - Use OR to group synonyms within parentheses
+# - Use AND to connect concepts
+# - Typical query has 3-5 terms connected by AND
+# - Do NOT use site:, -, or other advanced operators
+# - ANCHORING RULE: Every query MUST include at least one highly specific technical phrase in "" quotes to prevent matching unrelated fields
+ 
+# ## OUTPUT FORMAT
+# Output ONLY a Python list of query strings. No explanations, no reasoning, no commentary, no round labels.
+ 
+# ["query 1", "query 2", "query 3", ...]
 
-Generate exactly {num_queries} queries. Distribute them across these FOUR strategy types to maximize coverage. Include ALL {num_queries} queries even if some overlap slightly — breadth matters here.
+# The list must contain exactly {num_queries} strings.
 
-STRATEGY A — Specific Material/Process Queries (3-4 queries):
-Combine the most specific materials, compounds, or processes from the invention.
-Include precise technical terms, material grades, synthesis methods, or processing conditions.
-Use 8-15 words. Example style: "in-situ graphene synthesis copper powder additive manufacturing heat dissipation"
 
-STRATEGY B — Mechanism/Functional Queries (3-4 queries):
-Focus on what the invention DOES or HOW it works — the core mechanism or operating principle.
-Use technical verb phrases. Example style: "parametric spin wave amplification surface acoustic wave magnonic device"
+#         return f"""You are a patent search expert. Generate {num_queries} highly targeted search queries to find prior art for this invention. Your queries will be used verbatim on Google Patents.
 
-STRATEGY C — Application/Domain Queries (3-4 queries):
-Capture the end-use domain, application area, and measurable outcome.
-Include performance metrics or improvement types if distinctive.
-Example style: "topology optimization piezoelectric actuator compliant mechanism decoupled motion"
+# INVENTION: {invention_data.get('invention_name', 'Unknown')}
 
-STRATEGY D — Synonym/Alternative Term Queries (2-3 queries):
-Use alternative terminology, synonyms, or related concepts that different assignees might use to describe the same invention. Think across US, CN, WO, EP patent families — include Chinese-context terms if the domain has strong CN prior art.
+# TECHNICAL DESCRIPTION:
+# {invention_data.get('technical_description', 'N/A')}
 
-Rules:
-- Preserve specific technical terms from the invention — do NOT generalize them away
-- Queries can be 5-20 words; longer is fine when specificity requires it
-- Do not include strategy labels in the output queries
+# PROBLEM STATEMENT:
+# {invention_data.get('problem_statement', 'N/A')}
 
-IMPORTANT: Return ONLY a JSON array with no other text.
+# SOLUTION APPROACH:
+# {invention_data.get('solution_approach', 'N/A')}
 
-["query 1", "query 2", ...]"""
+# KEY TECHNICAL FEATURES:
+# {', '.join(invention_data.get('key_technical_features', []))}
+
+# INVENTOR KEYWORDS:
+# {', '.join(invention_data.get('inventor_keywords', []))}
+
+# Generate exactly {num_queries} queries. Distribute them across these FIVE strategy types to maximize coverage. Include ALL {num_queries} queries even if some overlap slightly — breadth matters here.
+# ## Step 1: Determine Statutory Category (internal reasoning, do not output)
+# Classify the invention into one or more of the four statutory categories:
+# - **Process** — a method, sequence of steps, or fabrication procedure
+# - **Machine** — a device or apparatus with specific components
+# - **Manufacture** — an article or product made by a process
+# - **Composition of matter** — a new material, mixture, or chemical compound
+ 
+# Identify all that apply and note the **primary** category — this determines how queries are structured.
+ 
+# ## Step 2: Structure Queries Based on Statutory Category
+ 
+# If primary is **Composition of Matter** or **Manufacture:**
+# Focus on: does this material/product already exist?
+# - Composition queries: search the specific material combination and structure
+# - Process queries: search the method used to make it
+# - Abstract queries: drop specific materials, search the structural concept
+ 
+# If primary is **Process:**
+# Focus on: has anyone used this sequence of steps before?
+# - Process queries: search the specific steps and conditions
+# - Material + process queries: search the process applied to these materials
+# - Abstract process queries: strip materials, search the process sequence generically
+ 
+# If primary is **Machine:**
+# Focus on: does this device or its components already exist?
+# - Device queries: search the specific components and arrangement
+# - Function queries: search what the device does
+# - Abstract queries: search the operating principle generically
+ 
+# ## Step 3: Decide which rounds matter
+# Allocate more queries to the most relevant rounds based on statutory category. Skip or reduce irrelevant rounds.
+ 
+# Available Rounds:
+# - **Round 1 — Material/Composition/Components:** Search the specific materials or device components.
+# - **Round 2 — Material + Function/Property:** Combine materials/components with target properties or problems solved.
+# - **Round 3 — Process/Fabrication:** Search the specific process steps. For process inventions, this is the core round.
+# - **Round 4 — Concept/Architecture (drop specifics):** Replace specific materials/components with generic equivalents. This is where hidden/distant prior art lives.
+# - **Round 5 — Broadest/Abstract:** Search the design principle at its most abstract level. Generic terms only.
+ 
+# Query allocation guidance:
+# - Composition of matter: Round 1 (3–4), Round 2 (2–3), Round 3 (3–4), Round 4 (3–4), Round 5 (1–2)
+# - Process: Round 1 (1–2), Round 2 (2–3), Round 3 (5–6), Round 4 (3–4), Round 5 (1–2)
+# - Machine: Round 1 (3–4), Round 2 (3–4), Round 3 (2–3), Round 4 (3–4), Round 5 (1–2)
+# - Combined (e.g., composition + process): Split evenly between composition and process queries
+ 
+# ## Step 4: Build queries
+ 
+# Query Format Rules:
+# - Use AND, OR, "", and () operators
+# - Each term is **maximum 2 words** (e.g., "spin wave" counts as one term)
+# - Use "" for exact phrases (e.g., "thermal conductivity")
+# - Use OR to group synonyms (e.g., (sintering OR consolidation))
+# - Use AND to connect concepts
+# - Typical query has 3–5 terms connected by AND
+# - Do NOT use site:, -, or other advanced operators
+ 
+# Term Selection Rules:
+# - Use words that **actually appear in the extraction** or are direct generic equivalents
+# - Do NOT use words from patents you haven't seen
+# - Do NOT invent terminology not implied by the extraction
+# - For Round 4–5, drop specific material names and keep only structure/process/function words
+# - **Anchoring rule:** Always include at least one highly specific technical phrase (using "") per query to prevent matching unrelated fields. Use "copper matrix" not copper AND matrix. Use "spin wave" not spin AND wave.
+ 
+# IMPORTANT: Return ONLY a JSON array of query strings with no other text.
+# ["query 1", "query 2", ...]"""
+# STRATEGY A — Specific Material/Process Queries (2 queries):
+# Combine the most specific materials, compounds, or processes from the invention.
+# Include precise technical terms, material grades, synthesis methods, or processing conditions.
+# Use 8-15 words. Example style: "in-situ graphene synthesis copper powder additive manufacturing heat dissipation"
+
+# STRATEGY B — Mechanism/Functional Queries (2 queries):
+# Focus on what the invention DOES or HOW it works — the core mechanism or operating principle.
+# Use technical verb phrases. Example style: "parametric spin wave amplification surface acoustic wave magnonic device"
+
+# STRATEGY C — Application/Domain Queries (2 queries):
+# Capture the end-use domain, application area, and measurable outcome.
+# Include performance metrics or improvement types if distinctive.
+# Example style: "topology optimization piezoelectric actuator compliant mechanism decoupled motion"
+
+# STRATEGY D — Synonym/Alternative Term Queries (2 queries):
+# Use alternative terminology, synonyms, or related concepts that different assignees might use to describe the same invention. Think across US, CN, WO, EP patent families — include Chinese-context terms if the domain has strong CN prior art.
+
+# STRATEGY E — Boolean OR Multi-Variant Queries (4 queries):
+# CRITICAL FOR RECALL: Identify the 2–3 most important technical concepts in the invention, then
+# expand EACH concept with its synonyms using (term1 OR term2 OR term3). Concepts are
+# space-separated (implicit AND) so the query anchors on all of them simultaneously.
+
+# Rules for Strategy E:
+# - Use OR only within the SAME concept group (synonyms) — never OR across different concepts
+# - Cover process name variants (e.g. binder jetting / BJP / binder jet printing / 粘结剂喷射),
+#   material name variants (e.g. graphene / GNP / graphene nanoplatelet / 石墨烯),
+#   and application variants (e.g. heat dissipation / thermal management / heat sink)
+# - Include Chinese-language synonyms inside the parentheses when strong CN prior art exists
+# - Each query must include at least one non-OR anchor term so it is not too broad
+
+# Example style:
+#   "(graphene OR graphene nanoplatelet OR GNP OR 石墨烯) (copper OR pure copper OR Cu matrix) (binder jetting OR BJP OR binder jet printing OR 粘结剂喷射) heat dissipation"
+#   "(additive manufacturing OR 3D printing OR binder jetting) (graphene OR GNP) copper composite sintering"
+
+# Rules:
+# - Preserve specific technical terms from the invention — do NOT generalize them away
+# - Queries can be 5-30 words; Strategy E queries may be longer due to OR groups
+# - Do not include strategy labels in the output queries
+
+# IMPORTANT: Return ONLY a JSON array with no other text.
+
+# ["query 1", "query 2", ...]"""
 
     @staticmethod
     def get_patents(query: str, max_results: int = 10) -> str:

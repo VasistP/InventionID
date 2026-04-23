@@ -377,9 +377,9 @@ def stage_2_generate_queries(invention):
     print("STAGE 2: GENERATE SEARCH QUERIES")
     print("="*60)
 
-    prompt = PromptTemplates.generate_search_queries(invention, num_queries=10)
+    prompt = PromptTemplates.generate_search_queries(invention, num_queries=15)
     print("promtpt:",prompt)
-    queries = call_bedrock_json(prompt, max_tokens=500, model_id=MODEL_OPUS)
+    queries = call_bedrock_json(prompt, max_tokens=5000, model_id=MODEL_OPUS)
 
     if queries:
         print(f"  Generated {len(queries)} queries:")
@@ -401,7 +401,7 @@ def stage_3_search_patents(queries, max_concurrent: int = 5):
     results_by_query = parallel_search_queries(
         patent_searcher,
         queries,
-        max_results_per_query=5,
+        max_results_per_query=10,
         max_concurrent=max_concurrent,
     )
 
@@ -429,7 +429,7 @@ def stage_3_search_scholar(queries, max_concurrent: int = 5):
     results_by_query = parallel_scholar_queries(
         patent_searcher,
         queries,
-        max_results_per_query=5,
+        max_results_per_query=10,
         max_concurrent=max_concurrent,
     )
 
@@ -775,6 +775,7 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
     # Stage 2: Generate queries
     _emit(2, "Generating search queries")
     try:
+        print(invention)
         queries = stage_2_generate_queries(invention)
     except JsonParseExhaustedError:
         raise  # let pipeline retry wrapper handle it
@@ -797,6 +798,9 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
         _emit(3, "Searching patents and papers", detail=f"{len(queries)} queries")
         try:
             patents = stage_3_search_patents(queries)
+            for p in patents:
+                print(f"  {p.get('patent_number', 'N/A')}: {p.get('title', 'N/A')}")
+            # exit()
         except Exception as e:
             print(f"  Stage 3 patent search failed: {e}")
         try:

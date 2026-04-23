@@ -4,14 +4,15 @@ export SERPAPI_KEY="a794f1554124f18814caf7a3d1929cf514512e451c3836f93a0a93827b0e
 
 # export SERPAPI_KEY="3838225e553c20bd0f9a974a00eddd3fc5b70bcbf232fbc23a0189026842ae81" #Pranav
 PYTHON=python3
-SCRIPT="src/full_pipeline_cached_Prayoga_test.py"
-# SCRIPT="src/full_pipeline_integrated_Prayoga_test.py"
+# SCRIPT="src/full_pipeline_cached_Prayoga_test.py"
+SCRIPT="src/full_pipeline_integrated_Prayoga_test.py"
 LOG_FILE="run.log"
 
 pdfs=(
   # "input/Kim et al. - 2024 - MDAgents An Adaptive Collaboration of LLMs for Medical Decision-Making.pdf"
   # "input/Multi-Quadruped Cooperative Object Transport: Learning Decentralized Pinch-Lift-Move.pdf"
   "input/1774991348_Li_et_al_3D-IGN_CMCs_2023.pdf"
+  # "input/1774990997_microactuator_pub_2024.pdf"
   # "input/1774990728_042408_1_5.0280832.pdf"
   # "input/2410.13828v2.pdf"
   # # "input/2006.02402v1.pdf"
