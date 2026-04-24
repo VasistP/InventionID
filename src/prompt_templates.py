@@ -196,6 +196,213 @@ Output ONLY a Python list of query strings. No explanations, no reasoning, no co
 The list must contain exactly {num_queries} strings.
 """
 
+    @staticmethod
+    def generate_concept_scratchpad(invention_data: dict) -> str:
+        """
+        Call 1 of the two-call query generation pipeline.
+        Extracts concepts with specificity ratings, patent-drafter synonyms,
+        synonym chains, novelty axes, and top-3 anchor keywords.
+        Output feeds directly into generate_queries_from_scratchpad().
+        """
+        return f"""You are a patent agent preparing to search Google Patents for prior art.
+
+INVENTION: {invention_data.get('invention_name', 'Unknown')}
+
+TECHNICAL DESCRIPTION:
+{invention_data.get('technical_description', 'N/A')}
+
+PROBLEM STATEMENT:
+{invention_data.get('problem_statement', 'N/A')}
+
+SOLUTION APPROACH:
+{invention_data.get('solution_approach', 'N/A')}
+
+KEY TECHNICAL FEATURES:
+{', '.join(invention_data.get('key_technical_features', []))}
+
+Perform the following steps and output the result as structured JSON.
+
+## STEP 1: STATUTORY CATEGORY
+Classify the invention's PRIMARY patent-eligible category: Process, Machine, Manufacture, or Composition of Matter.
+
+## STEP 2: NOVELTY AXES
+Identify:
+- WHAT axis: the physical thing being claimed (device, material, structure, composition). One sentence: "does X exist?"
+- HOW axis: the method, process, optimization, or analytical technique used. One sentence: "has anyone done Y before?" Set to null if no HOW axis exists.
+
+## STEP 3: CONCEPT EXTRACTION WITH SPECIFICITY RATING
+Extract every significant technical concept. For each concept:
+- Assign a group: Materials/Components, Structure/Architecture, Process/Method, Properties/Function, or Problem/Field
+- Rate specificity using EXACTLY one of these three labels:
+  - "Too Specific": proprietary detail, chemical formula, model number, or academic theory that rarely appears in patent claims — generalize one level up
+  - "Well-placed": common enough to appear in many patents, specific enough to define a technical neighborhood when combined — keep as-is
+  - "Too Generic": a bare noun (e.g., "device", "system", "method") that matches millions of unrelated patents — must always be paired with another term
+- Add ONE patent-drafter synonym: the term a patent attorney would substitute in a claim. Must be a real, field-standard alternative. Do not invent terms.
+- Add 2-4 additional field-standard synonyms (interchangeable terms, acronyms, alternative names actually used in patent filings). Only include terms you are confident are field-standard.
+
+## STEP 4: TRIM MULTI-WORD CONCEPTS
+For any concept longer than 2 words: drop generic suffixes (apparatus, system, device, assembly, method, process), scope adjectives (improved, novel, advanced, portable), and connecting phrases (for, of, with, based on). Keep the technical noun and its one most-informative modifier. If trimming destroys the distinguishing meaning, leave it whole.
+
+## STEP 5: IDENTIFY TOP-3 ANCHORS
+From the well-placed concepts, identify the 3 keywords that best represent the invention's core. These are the terms that, if removed from every query, would make the invention unrecognizable. Each anchor must come from a different concept group where possible. Provide a one-sentence reason for each.
+
+## STEP 6: NOVELTY FOCUS
+- novelty_focus: the single most novel aspect (queries should spend the most time here)
+- known_aspects: what is already well-established prior art (spend fewer queries here)
+
+## OUTPUT FORMAT
+Output ONLY valid JSON matching this schema:
+
+{{
+  "statutory_category": "Machine",
+  "what_axis": "one sentence",
+  "how_axis": "one sentence or null",
+  "concepts": [
+    {{
+      "name": "primary term (1-2 words max)",
+      "group": "Structure/Architecture",
+      "specificity": "Well-placed",
+      "drafter_synonym": "one patent-claim equivalent term",
+      "synonyms": ["term1", "term2", "term3"]
+    }}
+  ],
+  "top_3_anchors": [
+    {{"term": "anchor1", "reason": "why this is central"}},
+    {{"term": "anchor2", "reason": "why this is central"}},
+    {{"term": "anchor3", "reason": "why this is central"}}
+  ],
+  "novelty_focus": "one sentence",
+  "known_aspects": "one sentence"
+}}
+
+Output ONLY the JSON object. No explanations or commentary.
+"""
+
+    @staticmethod
+    def generate_queries_from_scratchpad(invention_data: dict, scratchpad: dict, num_queries: int = 15) -> str:
+        """
+        Call 2 of the two-call query generation pipeline.
+        Uses vocabulary lock (every query term must come from the verified
+        concept list), anchor rotation, and a diversity check to prevent
+        near-duplicate queries.
+        """
+        # Build the USE vocabulary list from the scratchpad
+        concepts = scratchpad.get("concepts", [])
+        vocab_lines = []
+        for c in concepts:
+            all_terms = [c["name"]]
+            if c.get("drafter_synonym"):
+                all_terms.append(c["drafter_synonym"])
+            all_terms.extend(c.get("synonyms", []))
+            terms_str = ", ".join(f'"{t}"' if " " in t else t for t in all_terms)
+            vocab_lines.append(
+                f"  [{c.get('group','?')}] {c['name']} "
+                f"(specificity: {c.get('specificity','?')}) — USE-list terms: {terms_str}"
+            )
+        vocab_block = "\n".join(vocab_lines) if vocab_lines else "  (no concepts extracted)"
+
+        anchors = scratchpad.get("top_3_anchors", [])
+        anchor_lines = "\n".join(
+            f"  {i+1}. \"{a.get('term','')}\" — {a.get('reason','')}"
+            for i, a in enumerate(anchors)
+        )
+
+        what_axis = scratchpad.get("what_axis", "")
+        how_axis = scratchpad.get("how_axis", "")
+        novelty_focus = scratchpad.get("novelty_focus", "")
+        known_aspects = scratchpad.get("known_aspects", "")
+        category = scratchpad.get("statutory_category", "")
+
+        broad_n = num_queries // 3 + (1 if num_queries % 3 > 0 else 0)
+        focused_n = num_queries // 3 + (1 if num_queries % 3 > 1 else 0)
+        narrow_n = num_queries - broad_n - focused_n
+
+        return f"""You are a patent agent generating Google Patents search queries to find prior art.
+
+INVENTION: {invention_data.get('invention_name', 'Unknown')}
+
+CONCEPT ANALYSIS:
+- Statutory category: {category}
+- WHAT axis: {what_axis}
+- HOW axis: {how_axis or 'N/A'}
+- Most novel: {novelty_focus}
+- Already known: {known_aspects}
+
+TOP-3 ANCHOR KEYWORDS (must appear in queries as shown below):
+{anchor_lines if anchor_lines else '  (none identified)'}
+
+VERIFIED KEYWORD VOCABULARY:
+{vocab_block}
+
+---
+
+## STEP 1 — FILTER: Build your AVOID and USE lists
+
+Review the vocabulary above. Mark each concept as AVOID or USE.
+
+Reasons to AVOID:
+- "Too Specific" specificity rating AND describes a proprietary/academic detail not used in patent claims
+- Property-boast outcomes (enhanced, superior, optimal) that don't appear as claim terms
+- Characterization technique rather than the invention itself
+- Conflicts with statutory category (e.g., pure structural term when category is Process)
+
+Hard rule: **REMOVE at least 40% of concepts** by marking them AVOID.
+Hard rule: **Do NOT remove a concept just for being broad** — breadth is useful for §102 recall.
+
+Output:
+```
+AVOID: <term> — <reason>
+...
+USE: <term>, <term>, ...
+```
+
+## STEP 2 — VOCABULARY LOCK
+
+**CRITICAL: Every quoted term in every query you write MUST come from the USE list above (the concept name, its drafter synonym, or one of its listed synonyms). Do not introduce any term not on this list. If a word is not in the USE vocabulary, you cannot use it.**
+
+Before writing each query, scan every quoted term against the USE list. If any term is not there, replace it with the nearest USE-list equivalent or remove it.
+
+## STEP 3 — GENERATE {num_queries} QUERIES ACROSS THREE TIERS
+
+Distribute queries: {broad_n} broad · {focused_n} focused · {narrow_n} narrow
+
+**Broad tier ({broad_n} queries):** 2-3 AND facets. Maximize recall of §102 prior art — anything "spot on" similar. Use wide OR synonym chains. At least one query per anchor keyword from Step 1.
+
+**Focused tier ({focused_n} queries):** 3-4 AND facets with OR synonym chains. Target the core novelty axis. If a HOW axis exists, dedicate at least 2 of these queries to it.
+
+**Narrow tier ({narrow_n} queries):** 4-5 AND facets. Highly specific to the most novel aspect. Combine WHAT and HOW axes together.
+
+**Anchor rotation rule:** Each of the 3 anchor keywords must appear in at least 2 queries. Spread them — don't cluster all anchors in the same query.
+
+**Diversity rule:** No two queries may share the same 3 core terms. Before writing query N, check it against queries 1 through N-1. If there is a near-duplicate, rework one of them to emphasize a different concept group or synonym choice.
+
+## QUERY FORMAT RULES
+- Use AND, OR, "", and () operators only
+- MANDATORY: Any multi-word phrase (2+ words) MUST be in double quotes
+- MANDATORY: Every facet connected by explicit AND
+- OR synonym groups in parentheses: concept AND (syn1 OR syn2 OR syn3) AND concept
+- Maximum 2 standalone quoted phrases per query (phrases inside OR chains don't count)
+- Every query must include at least one quoted phrase as anchor
+
+## STEP 4 — COVERAGE CHECK (output after all queries)
+
+```
+COVERAGE CHECK
+- Anchor "{anchors[0].get('term','?') if anchors else '?'}": appears in Q<...>
+- Anchor "{anchors[1].get('term','?') if len(anchors)>1 else '?'}": appears in Q<...>
+- Anchor "{anchors[2].get('term','?') if len(anchors)>2 else '?'}": appears in Q<...>
+- Near-duplicate pairs: <yes/no + which queries>
+- HOW-axis coverage: <which queries target the HOW axis>
+```
+
+## OUTPUT FORMAT
+Output the AVOID/USE lists (Step 1), then the coverage check (Step 4), then a Python list of exactly {num_queries} query strings as the LAST element:
+
+["query 1", "query 2", ..., "query {num_queries}"]
+
+The final Python list must be the last thing in your response so it can be parsed directly.
+"""
+
 #         return f"""You are a patent agent generating Google Patent search queries to find prior art for this invention.
  
 # INVENTION: {invention_data.get('invention_name', 'Unknown')}

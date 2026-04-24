@@ -22,7 +22,9 @@ import json
 import re
 import time
 import os
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from dotenv import load_dotenv
 from prompt_templates import PromptTemplates, get_invention_description
 from invention_agent_cached import InventionExtractionAgentCached
 from utils.parallel_search import parallel_search_queries, parallel_scholar_queries
@@ -53,6 +55,7 @@ def _init_components():
     global bedrock, s3, patent_searcher, rate_limiter, circuit_breaker, invention_agent, _initialized
     if _initialized:
         return
+    load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
     bedrock = boto3.client('bedrock-runtime', region_name='us-east-2')
     s3 = boto3.client('s3')
 
@@ -87,9 +90,10 @@ class PatentSearcher:
             print("ERROR: serpapi not installed. Run: pip install google-search-results --break-system-packages")
             self.GoogleSearch = None
 
-    def search(self, query: str, max_results: int = 10) -> list:
+    def search(self, query: str, max_results: int = 10) -> tuple:
+        """Returns (results_list, total_count) where total_count is Google Patents' total hit count."""
         if not self.GoogleSearch:
-            return []
+            return [], 0
         try:
             params = {
                 "engine": "google_patents",
@@ -99,11 +103,12 @@ class PatentSearcher:
             }
             time.sleep(self.delay)
             search = self.GoogleSearch(params)
-            results = search.get_dict()
-            return self._parse_results(results, max_results)
+            data = search.get_dict()
+            total = data.get("search_information", {}).get("total_results", 0)
+            return self._parse_results(data, max_results), total
         except Exception as e:
             print(f"    SerpAPI error: {e}")
-            return []
+            return [], 0
 
     def _extract_patent_number(self, patent_id: str) -> str:
         if not patent_id:
@@ -120,6 +125,7 @@ class PatentSearcher:
             patent_number = self._extract_patent_number(patent_id)
             patent = {
                 "patent_number": patent_number,
+                "patent_id": patent_id,
                 "title": result.get("title", ""),
                 "url": f"https://patents.google.com/{patent_id}" if patent_id else "",
                 "abstract": result.get("snippet", ""),
@@ -133,34 +139,47 @@ class PatentSearcher:
                 patents.append(patent)
         return patents
 
-    def get_patent_details(self, patent_number: str) -> dict:
+    def get_patent_details(self, patent_number: str, patent_id: str = "") -> dict:
         if not self.GoogleSearch:
             return {"patent_number": patent_number, "error": "serpapi not installed"}
         try:
+            pid = patent_id or f"patent/{patent_number}/en"
             params = {
-                "engine": "google_patents",
-                "q": patent_number,
-                "api_key": self.api_key
+                "engine": "google_patents_details",
+                "patent_id": pid,
+                "api_key": self.api_key,
             }
             time.sleep(self.delay)
             search = self.GoogleSearch(params)
             data = search.get_dict()
-            results = data.get("organic_results", [])
-            if results:
-                r = results[0]
-                patent_id = r.get("patent_id", "")
-                return {
-                    "patent_number": self._extract_patent_number(patent_id) or patent_number,
-                    "title": r.get("title", ""),
-                    "abstract": r.get("snippet", ""),
-                    "url": f"https://patents.google.com/{patent_id}" if patent_id else "",
-                    "filing_date": r.get("filing_date", ""),
-                    "publication_date": r.get("publication_date", ""),
-                    "inventors": r.get("inventor", ""),
-                    "assignee": r.get("assignee", ""),
-                    "claim_1": ""
-                }
-            return {"patent_number": patent_number, "error": "Not found"}
+            if not data.get("title"):
+                return {"patent_number": patent_number, "error": "Not found"}
+            claims = data.get("claims", [])
+            claim_1 = ""
+            if claims:
+                first = claims[0]
+                if isinstance(first, dict):
+                    claim_1 = first.get("text") or first.get("claim_text", "")
+                elif isinstance(first, str):
+                    claim_1 = first
+            inventors = data.get("inventors", "")
+            if isinstance(inventors, list):
+                inventors = ", ".join(i.get("name", str(i)) if isinstance(i, dict) else str(i) for i in inventors)
+            assignees = data.get("assignees", "")
+            if isinstance(assignees, list):
+                assignees = ", ".join(a.get("name", str(a)) if isinstance(a, dict) else str(a) for a in assignees)
+            return {
+                "patent_number": patent_number,
+                "patent_id": pid,
+                "title": data.get("title", ""),
+                "abstract": data.get("abstract") or data.get("snippet", ""),
+                "url": f"https://patents.google.com/{pid}",
+                "filing_date": data.get("filing_date", ""),
+                "publication_date": data.get("publication_date", ""),
+                "inventors": inventors,
+                "assignee": assignees,
+                "claim_1": claim_1,
+            }
         except Exception as e:
             print(f"    SerpAPI error for {patent_number}: {e}")
             return {"patent_number": patent_number, "error": str(e)}
@@ -295,30 +314,77 @@ def stage_1_extract_invention(sections):
 
 
 def stage_2_generate_queries(invention):
-    """Stage 2: Generate search queries."""
+    """Stage 2: Generate search queries using a two-call approach.
+
+    Call 1 extracts concepts, synonym chains, and novelty axes into a
+    structured scratchpad (verifiable intermediate output).
+    Call 2 uses that scratchpad as grounded context to produce the final
+    query list, replacing silent internal reasoning with explicit output.
+
+    Returns (queries, scratchpad) — scratchpad is the concept extraction
+    dict or {} if Call 1 failed (fallback to single-call mode).
+    """
     print("\n" + "="*60)
     print("STAGE 2: GENERATE SEARCH QUERIES")
     print("="*60)
 
-    prompt = PromptTemplates.generate_search_queries(invention, num_queries=NUM_SEARCH_QUERIES)
-    queries = call_bedrock_json(prompt, max_tokens=500, model_id=MODEL_QUERY_GEN)
+    # --- Call 1: concept extraction scratchpad ---
+    scratchpad = {}
+    try:
+        print("  Step 2a: Extracting concepts and synonym chains...")
+        scratchpad_prompt = PromptTemplates.generate_concept_scratchpad(invention)
+        scratchpad = call_bedrock_json(scratchpad_prompt, max_tokens=1200, model_id=MODEL_QUERY_GEN) or {}
+        if scratchpad:
+            print(f"  Statutory category: {scratchpad.get('statutory_category', '?')}")
+            print(f"  WHAT axis: {scratchpad.get('what_axis', '?')}")
+            if scratchpad.get('how_axis'):
+                print(f"  HOW axis: {scratchpad.get('how_axis')}")
+            print(f"  Concepts extracted: {len(scratchpad.get('concepts', []))}")
+        else:
+            print("  WARNING: Scratchpad call returned empty — falling back to single-call mode")
+    except Exception as e:
+        print(f"  WARNING: Scratchpad call failed ({e}) — falling back to single-call mode")
+
+    # --- Call 2: generate queries ---
+    queries = None
+    if scratchpad and scratchpad.get("concepts"):
+        try:
+            print("  Step 2b: Generating queries from extracted concepts...")
+            query_prompt = PromptTemplates.generate_queries_from_scratchpad(
+                invention, scratchpad, num_queries=NUM_SEARCH_QUERIES
+            )
+            queries = call_bedrock_json(query_prompt, max_tokens=1500, model_id=MODEL_QUERY_GEN)
+        except Exception as e:
+            print(f"  WARNING: Two-call query generation failed ({e}) — falling back to single-call mode")
+            queries = None
+
+    # --- Fallback: original single-call approach ---
+    if not queries:
+        print("  Using single-call fallback...")
+        prompt = PromptTemplates.generate_search_queries(invention, num_queries=NUM_SEARCH_QUERIES)
+        queries = call_bedrock_json(prompt, max_tokens=1500, model_id=MODEL_QUERY_GEN)
 
     if queries:
         print(f"  Generated {len(queries)} queries:")
         for q in queries:
             print(f"    - {q}")
 
-    return queries or []
+    return queries or [], scratchpad
 
 
 def stage_3_search_patents(queries, max_concurrent: int = MAX_SEARCH_CONCURRENT):
-    """Stage 3: Search patents via SerpAPI (parallel)."""
+    """Stage 3: Search patents via SerpAPI (parallel).
+
+    Returns (patents_list, query_counts) where query_counts is a dict mapping
+    each query string to Google Patents' total hit count for that query.
+    """
     print("\n" + "="*60)
     print("STAGE 3: PATENT SEARCH (SerpAPI, parallel)")
     print("="*60)
 
     all_patents = []
     seen = set()
+    query_counts: dict = {}
 
     results_by_query = parallel_search_queries(
         patent_searcher,
@@ -327,7 +393,8 @@ def stage_3_search_patents(queries, max_concurrent: int = MAX_SEARCH_CONCURRENT)
         max_concurrent=max_concurrent,
     )
 
-    for query, results in results_by_query:
+    for query, results, total in results_by_query:
+        query_counts[query] = total
         print(f"  Merging results for: {query!r}")
         for p in results:
             num = p.get("patent_number", "")
@@ -336,7 +403,7 @@ def stage_3_search_patents(queries, max_concurrent: int = MAX_SEARCH_CONCURRENT)
                 all_patents.append(p)
 
     print(f"  Total unique patents: {len(all_patents)}")
-    return all_patents
+    return all_patents, query_counts
 
 
 def stage_3_search_scholar(queries, max_concurrent: int = MAX_SEARCH_CONCURRENT):
@@ -455,18 +522,20 @@ def stage_3b_rank_by_similarity(invention, patents, papers):
         )
 
         print(f"  Ranking complete — {len(ranked_patents)} patents, {len(ranked_papers)} papers")
-        return ranked_patents, ranked_papers
+        # Return inv_vec so Stage 4b can reuse it without a second embed call
+        return ranked_patents, ranked_papers, inv_vec
 
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
         print(f"  Local embeddings deleted.")
 
 
-def stage_4b_rerank_by_full_text(invention, patents):
+def stage_4b_rerank_by_full_text(invention, patents, cached_inv_vec=None):
     """
     Stage 4b: Re-rank fetched patents by cosine similarity using full text
     (title + full abstract + claim_1) rather than the SerpAPI snippet used in Stage 3b.
 
+    cached_inv_vec: numpy array (1, D) from Stage 3b — skips re-embedding the invention.
     Operates on the ~40 patents returned by Stage 4 (already enriched with claim text).
     Returns the list sorted highest-similarity first, with similarity_score updated.
     Falls back to the original order on any error.
@@ -495,8 +564,12 @@ def stage_4b_rerank_by_full_text(invention, patents):
             " ".join(invention.get("inventor_keywords", [])),
         ]))
 
-        print(f"  Embedding invention description...")
-        inv_vec = np.array([embed_text_titan(inv_text)], dtype=np.float32)
+        if cached_inv_vec is not None:
+            print(f"  Reusing invention embedding from Stage 3b.")
+            inv_vec = cached_inv_vec
+        else:
+            print(f"  Embedding invention description...")
+            inv_vec = np.array([embed_text_titan(inv_text)], dtype=np.float32)
         np.save(os.path.join(tmp_dir, "invention_fulltext.npy"), inv_vec)
 
         print(f"  Embedding {len(patents)} patents by full text (title + abstract + claim_1)...")
@@ -555,7 +628,7 @@ def stage_4_fetch_details(patents, max_concurrent: int = MAX_SEARCH_CONCURRENT):
 
     for p in candidates:
         patent_num = p.get('patent_number', '')
-        if p.get('abstract') and len(p.get('abstract', '')) > 50:
+        if p.get('claim_1') and p.get('abstract') and len(p.get('abstract', '')) > 150:
             print(f"  Using cached: {patent_num}")
             cached.append(p)
         elif patent_num:
@@ -563,9 +636,10 @@ def stage_4_fetch_details(patents, max_concurrent: int = MAX_SEARCH_CONCURRENT):
 
     def fetch_one(p):
         patent_num = p.get('patent_number', '')
+        patent_id = p.get('patent_id', '')
         print(f"  Fetching: {patent_num}")
         try:
-            details = patent_searcher.get_patent_details(patent_num)
+            details = patent_searcher.get_patent_details(patent_num, patent_id)
             return {**p, **details}
         except Exception as e:
             print(f"  Fetch error for {patent_num}: {e}")
@@ -588,34 +662,8 @@ def stage_4_fetch_details(patents, max_concurrent: int = MAX_SEARCH_CONCURRENT):
         else:
             detailed_patents.append(p)
 
-    print(f"  Got details for {len(detailed_patents)} patents")
-
-    # Scrape full abstract + claim 1 from each patent's Google Patents page.
-    # Results overwrite the SerpAPI snippet only when non-empty, so the snippet
-    # remains as a fallback for pages that fail to scrape.
-    from tools.patent_scraper import fetch_patent_full_text
-
-    print(f"  Scraping full text (abstract + claim 1) for {len(detailed_patents)} patents...")
-
-    def scrape_one(p):
-        url = p.get("url", "")
-        if not url:
-            return p
-        scraped = fetch_patent_full_text(url)
-        if not scraped.get("abstract") and not scraped.get("claim_1"):
-            return p
-        merged = dict(p)
-        if scraped.get("abstract"):
-            merged["abstract"] = scraped["abstract"]
-        if scraped.get("claim_1"):
-            merged["claim_1"] = scraped["claim_1"]
-        return merged
-
-    with ThreadPoolExecutor(max_workers=max_concurrent) as executor:
-        detailed_patents = list(executor.map(scrape_one, detailed_patents))
-
-    scraped_count = sum(1 for p in detailed_patents if p.get("claim_1"))
-    print(f"  Full text scrape complete — claim_1 populated for {scraped_count}/{len(detailed_patents)} patents.")
+    claim_count = sum(1 for p in detailed_patents if p.get("claim_1"))
+    print(f"  Got details for {len(detailed_patents)} patents — claim_1 populated for {claim_count}/{len(detailed_patents)}.")
     return detailed_patents
 
 
@@ -694,7 +742,7 @@ def stage_5_analyze_patents(invention, patents):
 
     inv_desc = get_invention_description(invention)
     prompt = PromptTemplates.analyze_patents_batch(inv_desc, patents[:MAX_PATENTS_TO_ANALYZE])
-    analysis = call_bedrock_json(prompt, max_tokens=3000, model_id=MODEL_ANALYSIS)
+    analysis = call_bedrock_json(prompt, max_tokens=6000, model_id=MODEL_ANALYSIS)
 
     if analysis:
         print(f"  Analyzed {len(analysis)} patents:")
@@ -742,7 +790,7 @@ IMPORTANT: Return ONLY a JSON array with no other text. One object per paper in 
 Keys per object: "title", "relevance_score", "classification", "similarities", "differences", "analysis"
 """
 
-    analysis = call_bedrock_json(prompt, max_tokens=3000, model_id=MODEL_ANALYSIS)
+    analysis = call_bedrock_json(prompt, max_tokens=6000, model_id=MODEL_ANALYSIS)
 
     if analysis:
         print(f"  Analyzed {len(analysis)} papers:")
@@ -875,6 +923,9 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
 
     queries = []
     patents = []
+    query_counts: dict = {}
+    concept_scratchpad: dict = {}
+    cached_inv_vec = None
     detailed = []
     analysis = []
     papers = []
@@ -884,7 +935,7 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
     # Stage 2: Generate queries
     _emit(2, "Generating search queries")
     try:
-        queries = stage_2_generate_queries(invention)
+        queries, concept_scratchpad = stage_2_generate_queries(invention)
     except JsonParseExhaustedError:
         raise
     except Exception as e:
@@ -893,63 +944,72 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
     if not queries:
         print("  WARNING: No search queries generated — skipping patent search stages")
     else:
-        # Stage 3: Search patents + scholar papers
+        # Stage 3: Patent + scholar searches run simultaneously
         _emit(3, "Searching patents and papers", detail=f"{len(queries)} queries")
-        try:
-            patents = stage_3_search_patents(queries)
-        except Exception as e:
-            print(f"  Stage 3 patent search failed: {e}")
-        try:
-            papers = stage_3_search_scholar(queries)
-        except Exception as e:
-            print(f"  Stage 3 scholar search failed: {e}")
+        with ThreadPoolExecutor(max_workers=2) as ex:
+            f_patents = ex.submit(stage_3_search_patents, queries)
+            f_papers  = ex.submit(stage_3_search_scholar, queries)
+            try:
+                patents, query_counts = f_patents.result()
+            except Exception as e:
+                print(f"  Stage 3 patent search failed: {e}")
+            try:
+                papers = f_papers.result()
+            except Exception as e:
+                print(f"  Stage 3 scholar search failed: {e}")
 
         if patents or papers:
             # Stage 3b: Re-rank all candidates by vector similarity before fetching details
             _emit(3, "Ranking candidates by vector similarity")
             try:
-                patents, papers = stage_3b_rank_by_similarity(invention, patents, papers)
+                patents, papers, cached_inv_vec = stage_3b_rank_by_similarity(invention, patents, papers)
             except Exception as e:
                 print(f"  Stage 3b vector ranking failed: {e} — falling back to arrival order.")
 
         if not patents and not papers:
             print("  WARNING: No patents or papers found — skipping analysis stages")
         else:
-            # Stage 4: Fetch patent details + scholar abstracts
+            # Stage 4: Patent details + scholar abstracts fetched simultaneously
             # patents list is now similarity-sorted; [:MAX_PATENTS_TO_FETCH] gives top-ranked
             _emit(4, "Fetching details", detail=f"{len(patents)} patents, {len(papers)} papers")
-            try:
-                detailed = stage_4_fetch_details(patents)
-            except Exception as e:
-                print(f"  Stage 4 patent details failed: {e}")
-                detailed = patents
-            try:
-                detailed_papers = stage_4_fetch_scholar_details(papers)
-            except Exception as e:
-                print(f"  Stage 4 scholar detail fetch failed: {e}")
-                detailed_papers = papers
+            with ThreadPoolExecutor(max_workers=2) as ex:
+                f_detailed        = ex.submit(stage_4_fetch_details, patents)
+                f_detailed_papers = ex.submit(stage_4_fetch_scholar_details, papers)
+                try:
+                    detailed = f_detailed.result()
+                except Exception as e:
+                    print(f"  Stage 4 patent details failed: {e}")
+                    detailed = patents
+                try:
+                    detailed_papers = f_detailed_papers.result()
+                except Exception as e:
+                    print(f"  Stage 4 scholar detail fetch failed: {e}")
+                    detailed_papers = papers
 
-            # Stage 4b: Re-rank fetched patents by full text (abstract + claim_1) before analysis
+            # Stage 4b: Re-rank by full text, reusing invention embedding from Stage 3b
             _emit(4, "Re-ranking by full text (abstract + claims)")
             try:
-                detailed = stage_4b_rerank_by_full_text(invention, detailed)
+                detailed = stage_4b_rerank_by_full_text(invention, detailed, cached_inv_vec=cached_inv_vec)
             except Exception as e:
                 print(f"  Stage 4b full-text re-rank failed: {e} — keeping Stage 4 order.")
 
-            # Stage 5: Analyze top-ranked patents + papers
+            # Stage 5: Patent + scholar analysis run simultaneously
             _emit(5, "Analyzing prior art", detail=f"{len(detailed)} patents, {len(detailed_papers)} papers")
-            try:
-                analysis = stage_5_analyze_patents(invention, detailed)
-            except JsonParseExhaustedError:
-                raise
-            except Exception as e:
-                print(f"  Stage 5 patent analysis failed: {e}")
-            try:
-                analysis_arxiv = stage_5_analyze_scholar_papers(invention, detailed_papers)
-            except JsonParseExhaustedError:
-                raise
-            except Exception as e:
-                print(f"  Stage 5 paper analysis failed: {e}")
+            with ThreadPoolExecutor(max_workers=2) as ex:
+                f_analysis = ex.submit(stage_5_analyze_patents, invention, detailed)
+                f_arxiv    = ex.submit(stage_5_analyze_scholar_papers, invention, detailed_papers)
+                try:
+                    analysis = f_analysis.result()
+                except JsonParseExhaustedError:
+                    raise
+                except Exception as e:
+                    print(f"  Stage 5 patent analysis failed: {e}")
+                try:
+                    analysis_arxiv = f_arxiv.result()
+                except JsonParseExhaustedError:
+                    raise
+                except Exception as e:
+                    print(f"  Stage 5 paper analysis failed: {e}")
 
     # Stage 6: Report
     _emit(6, "Generating final report")
@@ -979,35 +1039,39 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
             "ranking": "faiss-cosine-similarity",
             "full_text_rerank": True,
         },
+        "query_counts": query_counts,
+        "concept_map": concept_scratchpad,
     }
 
-    # Save report to S3
+    # Save report + agent logs to S3 simultaneously
     output_key = pdf_key.replace('input/', 'results/').replace('.pdf', '_report.json')
-    try:
-        s3.put_object(
-            Bucket=bucket,
-            Key=output_key,
-            Body=json.dumps(report, indent=2),
-            ContentType='application/json'
-        )
-        print(f"\nReport saved: s3://{bucket}/{output_key}")
-    except Exception as e:
-        print(f"  Failed to save report to S3: {e}")
+    log_key    = pdf_key.replace('input/', 'logs/').replace('.pdf', '_agent_logs.json')
 
-    # Upload agent logs to S3
-    log_key = pdf_key.replace('input/', 'logs/').replace('.pdf', '_agent_logs.json')
+    report_body = json.dumps(report, indent=2)
     try:
         with open(agent_log_file, 'r') as f:
-            log_content = f.read()
-        s3.put_object(
-            Bucket=bucket,
-            Key=log_key,
-            Body=log_content,
-            ContentType='application/json'
-        )
-        print(f"Agent logs saved: s3://{bucket}/{log_key}")
+            log_body = f.read()
     except Exception as e:
-        print(f"  Failed to save agent logs to S3: {e}")
+        print(f"  Could not read agent log file: {e}")
+        log_body = ""
+
+    def _upload_report():
+        s3.put_object(Bucket=bucket, Key=output_key, Body=report_body, ContentType='application/json')
+        print(f"\nReport saved: s3://{bucket}/{output_key}")
+
+    def _upload_logs():
+        if log_body:
+            s3.put_object(Bucket=bucket, Key=log_key, Body=log_body, ContentType='application/json')
+            print(f"Agent logs saved: s3://{bucket}/{log_key}")
+
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        f_report = ex.submit(_upload_report)
+        f_logs   = ex.submit(_upload_logs)
+        for f, name in [(f_report, "report"), (f_logs, "logs")]:
+            try:
+                f.result()
+            except Exception as e:
+                print(f"  Failed to save {name} to S3: {e}")
 
     _emit(7, "Complete", status="completed", result_key=output_key)
     return report

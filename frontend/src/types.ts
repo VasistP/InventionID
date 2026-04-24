@@ -60,11 +60,36 @@ export interface Invention {
   patentability_assessment?: PatentabilityAssessment;
 }
 
+export interface AnchorEntry {
+  term: string;
+  reason: string;
+}
+
+export interface ConceptEntry {
+  name: string;
+  group: string;
+  specificity?: 'Too Specific' | 'Well-placed' | 'Too Generic';
+  drafter_synonym?: string;
+  synonyms: string[];
+}
+
+export interface ConceptMap {
+  statutory_category?: string;
+  what_axis?: string;
+  how_axis?: string | null;
+  concepts?: ConceptEntry[];
+  top_3_anchors?: AnchorEntry[];
+  novelty_focus?: string;
+  known_aspects?: string;
+}
+
 export interface RunMetadata {
   pipeline_version: string;
   timestamp: string;
   models: Record<string, string>;
   retrieval_config: Record<string, number>;
+  query_counts?: Record<string, number>;
+  concept_map?: ConceptMap;
 }
 
 export interface ScholarPaperAnalysis {

@@ -1,9 +1,11 @@
-import { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { PipelineReport, Patent, ScholarPaper, ProgressMessage } from '../types';
 import { SummaryHeader } from './SummaryHeader';
 import { PatentCard } from './PatentCard';
 import { PaperCard } from './PaperCard';
 import { ProgressTracker } from './ProgressTracker';
+import { QueryCountsPanel } from './QueryCountsPanel';
+import { ConceptMapPanel } from './ConceptMapPanel';
 
 interface ResultsDisplayProps {
   report: PipelineReport;
@@ -25,6 +27,37 @@ const groupStyles: Record<string, { label: string; color: string }> = {
   relevant: { label: 'Relevant', color: 'text-yellow-700' },
   related:  { label: 'Related',  color: 'text-blue-700' },
 };
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}
+      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+    </svg>
+  );
+}
+
+function CollapsibleGroup({
+  label, color, count, defaultOpen, children,
+}: {
+  label: string; color: string; count: number; defaultOpen: boolean; children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1.5 w-full text-left mb-2 group"
+      >
+        <h4 className={`text-sm font-semibold ${color}`}>{label} ({count})</h4>
+        <span className="ml-auto"><ChevronIcon open={open} /></span>
+      </button>
+      {open && <div className="grid gap-4">{children}</div>}
+    </div>
+  );
+}
 
 export function ResultsDisplay({ report, progress, durationSeconds }: ResultsDisplayProps) {
   const handleDownloadPdf = () => {
@@ -109,6 +142,14 @@ export function ResultsDisplay({ report, progress, durationSeconds }: ResultsDis
 
       <SummaryHeader report={report} />
 
+      {report.run_metadata?.concept_map && (
+        <ConceptMapPanel conceptMap={report.run_metadata.concept_map} />
+      )}
+
+      {report.run_metadata?.query_counts && Object.keys(report.run_metadata.query_counts).length > 0 && (
+        <QueryCountsPanel queryCounts={report.run_metadata.query_counts} />
+      )}
+
       {report.patents.length > 0 && (
         <div>
           <h3 className="text-lg font-medium text-gray-800 mb-3">
@@ -116,16 +157,17 @@ export function ResultsDisplay({ report, progress, durationSeconds }: ResultsDis
           </h3>
           <div className="space-y-6">
             {patentGroups.map((group) => (
-              <div key={group.key}>
-                <h4 className={`text-sm font-semibold ${group.color} mb-2`}>
-                  {group.label} ({group.patents.length})
-                </h4>
-                <div className="grid gap-4">
-                  {group.patents.map((patent, i) => (
-                    <PatentCard key={patent.patent_number || i} patent={patent} animationIndex={i} />
-                  ))}
-                </div>
-              </div>
+              <CollapsibleGroup
+                key={group.key}
+                label={group.label}
+                color={group.color}
+                count={group.patents.length}
+                defaultOpen={(GROUP_ORDER as readonly string[]).includes(group.key)}
+              >
+                {group.patents.map((patent, i) => (
+                  <PatentCard key={patent.patent_number || i} patent={patent} animationIndex={i} />
+                ))}
+              </CollapsibleGroup>
             ))}
           </div>
         </div>
@@ -138,16 +180,17 @@ export function ResultsDisplay({ report, progress, durationSeconds }: ResultsDis
           </h3>
           <div className="space-y-6">
             {paperGroups.map((group) => (
-              <div key={group.key}>
-                <h4 className={`text-sm font-semibold ${group.color} mb-2`}>
-                  {group.label} ({group.papers.length})
-                </h4>
-                <div className="grid gap-4">
-                  {group.papers.map((paper, i) => (
-                    <PaperCard key={paper.url || paper.title || i} paper={paper} animationIndex={i} />
-                  ))}
-                </div>
-              </div>
+              <CollapsibleGroup
+                key={group.key}
+                label={group.label}
+                color={group.color}
+                count={group.papers.length}
+                defaultOpen={(GROUP_ORDER as readonly string[]).includes(group.key)}
+              >
+                {group.papers.map((paper, i) => (
+                  <PaperCard key={paper.url || paper.title || i} paper={paper} animationIndex={i} />
+                ))}
+              </CollapsibleGroup>
             ))}
           </div>
         </div>

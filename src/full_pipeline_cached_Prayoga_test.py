@@ -111,6 +111,7 @@ class PatentSearcher:
             patent_number = self._extract_patent_number(patent_id)
             patent = {
                 "patent_number": patent_number,
+                "patent_id": patent_id,
                 "title": result.get("title", ""),
                 "url": f"https://patents.google.com/{patent_id}" if patent_id else "",
                 "abstract": result.get("snippet", ""),
@@ -124,34 +125,47 @@ class PatentSearcher:
                 patents.append(patent)
         return patents
 
-    def get_patent_details(self, patent_number: str) -> dict:
+    def get_patent_details(self, patent_number: str, patent_id: str = "") -> dict:
         if not self.GoogleSearch:
             return {"patent_number": patent_number, "error": "serpapi not installed"}
         try:
+            pid = patent_id or f"patent/{patent_number}/en"
             params = {
-                "engine": "google_patents",
-                "q": f"patent/{patent_number}/en",
-                "api_key": self.api_key
+                "engine": "google_patents_details",
+                "patent_id": pid,
+                "api_key": self.api_key,
             }
             time.sleep(self.delay)
             search = self.GoogleSearch(params)
             data = search.get_dict()
-            results = data.get("organic_results", [])
-            if results:
-                r = results[0]
-                patent_id = r.get("patent_id", "")
-                return {
-                    "patent_number": self._extract_patent_number(patent_id) or patent_number,
-                    "title": r.get("title", ""),
-                    "abstract": r.get("snippet", ""),
-                    "url": f"https://patents.google.com/{patent_id}" if patent_id else "",
-                    "filing_date": r.get("filing_date", ""),
-                    "publication_date": r.get("publication_date", ""),
-                    "inventors": r.get("inventor", ""),
-                    "assignee": r.get("assignee", ""),
-                    "claim_1": ""
-                }
-            return {"patent_number": patent_number, "error": "Not found"}
+            if not data.get("title"):
+                return {"patent_number": patent_number, "error": "Not found"}
+            claims = data.get("claims", [])
+            claim_1 = ""
+            if claims:
+                first = claims[0]
+                if isinstance(first, dict):
+                    claim_1 = first.get("text") or first.get("claim_text", "")
+                elif isinstance(first, str):
+                    claim_1 = first
+            inventors = data.get("inventors", "")
+            if isinstance(inventors, list):
+                inventors = ", ".join(i.get("name", str(i)) if isinstance(i, dict) else str(i) for i in inventors)
+            assignees = data.get("assignees", "")
+            if isinstance(assignees, list):
+                assignees = ", ".join(a.get("name", str(a)) if isinstance(a, dict) else str(a) for a in assignees)
+            return {
+                "patent_number": patent_number,
+                "patent_id": pid,
+                "title": data.get("title", ""),
+                "abstract": data.get("abstract") or data.get("snippet", ""),
+                "url": f"https://patents.google.com/{pid}",
+                "filing_date": data.get("filing_date", ""),
+                "publication_date": data.get("publication_date", ""),
+                "inventors": inventors,
+                "assignee": assignees,
+                "claim_1": claim_1,
+            }
         except Exception as e:
             print(f"    SerpAPI error for {patent_number}: {e}")
             return {"patent_number": patent_number, "error": str(e)}
@@ -321,7 +335,7 @@ def stage_4_fetch_details(patents, max_concurrent: int = MAX_SEARCH_CONCURRENT):
 
     for p in candidates:
         patent_num = p.get('patent_number', '')
-        if p.get('abstract') and len(p.get('abstract', '')) > 50:
+        if p.get('claim_1') and p.get('abstract') and len(p.get('abstract', '')) > 150:
             print(f"  Using cached: {patent_num}")
             cached.append(p)
         elif patent_num:
@@ -329,9 +343,10 @@ def stage_4_fetch_details(patents, max_concurrent: int = MAX_SEARCH_CONCURRENT):
 
     def fetch_one(p):
         patent_num = p.get('patent_number', '')
+        patent_id = p.get('patent_id', '')
         print(f"  Fetching: {patent_num}")
         try:
-            details = patent_searcher.get_patent_details(patent_num)
+            details = patent_searcher.get_patent_details(patent_num, patent_id)
             return {**p, **details}
         except Exception as e:
             print(f"  Fetch error for {patent_num}: {e}")
