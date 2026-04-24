@@ -130,7 +130,7 @@ class PatentSearcher:
         try:
             params = {
                 "engine": "google_patents",
-                "q": patent_number,
+                "q": f"patent/{patent_number}/en",
                 "api_key": self.api_key
             }
             time.sleep(self.delay)
