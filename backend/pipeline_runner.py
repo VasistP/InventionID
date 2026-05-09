@@ -14,6 +14,56 @@ class PipelineAlreadyRunningError(Exception):
     pass
 
 
+def run_rerun_with_progress(bucket, result_key, required_keywords, optional_keywords, progress_callback=None):
+    """Run pipeline stages 2-7 (keyword-refined rerun) with progress reporting.
+
+    Does not acquire the mutex — reruns only write to a new S3 key and don't
+    share mutable state with each other. Raises PipelineAlreadyRunningError if
+    a full pipeline is currently running (they share the Bedrock client).
+    """
+    if _pipeline_lock.locked():
+        raise PipelineAlreadyRunningError("A full pipeline is already running")
+
+    from full_pipeline_vector import run_pipeline_from_search
+
+    start_time = time.time()
+
+    def timed_callback(data: dict):
+        if data.get("status") == "completed":
+            data = {**data, "duration_seconds": round(time.time() - start_time, 1)}
+        if progress_callback:
+            progress_callback(data)
+
+    effective_callback = timed_callback if progress_callback else None
+
+    try:
+        result = run_pipeline_from_search(
+            bucket, result_key,
+            required_keywords=required_keywords,
+            optional_keywords=optional_keywords,
+            progress_callback=effective_callback,
+        )
+        if "error" in result and progress_callback:
+            progress_callback({
+                "stage": -1,
+                "stage_name": "Rerun failed",
+                "status": "error",
+                "error": result["error"],
+            })
+        return result
+    except PipelineAlreadyRunningError:
+        raise
+    except Exception as e:
+        if progress_callback:
+            progress_callback({
+                "stage": -1,
+                "stage_name": "Rerun error",
+                "status": "error",
+                "error": str(e),
+            })
+        raise
+
+
 def run_pipeline_with_progress(bucket, pdf_key, progress_callback=None, user_invention_input=""):
     """
     Run the patent pipeline with progress reporting.

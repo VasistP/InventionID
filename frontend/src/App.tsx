@@ -5,7 +5,7 @@ import { ProgressTracker } from './components/ProgressTracker';
 import { ResultsDisplay } from './components/ResultsDisplay';
 
 export default function App() {
-  const { sessions, activeSession, startAnalysis, selectSession, newAnalysis } = usePipeline();
+  const { sessions, activeSession, startAnalysis, rerunWithKeywords, selectSession, newAnalysis } = usePipeline();
 
   const isRunning = activeSession?.status === 'running' || activeSession?.status === 'uploading';
   const showUpload = !activeSession && !isRunning;
@@ -34,7 +34,12 @@ export default function App() {
         )}
 
         {showResults && (
-          <ResultsDisplay report={activeSession.report!} progress={activeSession.progress} durationSeconds={activeSession.durationSeconds} />
+          <ResultsDisplay
+            report={activeSession.report!}
+            progress={activeSession.progress}
+            durationSeconds={activeSession.durationSeconds}
+            onRerun={(req, opt) => rerunWithKeywords(activeSession!, req, opt)}
+          />
         )}
 
         {showError && (

@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { uploadPdf, fetchResults, checkStatus } from '../api/client';
-import { connectPipeline } from '../api/websocket';
+import { uploadPdf, fetchResults, checkStatus, requestRerun } from '../api/client';
+import { connectPipeline, connectRerun } from '../api/websocket';
 import type { ProgressMessage, AnalysisSession } from '../types';
 
 function generateId(): string {
@@ -155,6 +155,72 @@ export function usePipeline() {
     [updateSession, startPolling],
   );
 
+  const rerunWithKeywords = useCallback(
+    async (originalSession: AnalysisSession, requiredKeywords: string[], optionalKeywords: string[]) => {
+      if (!originalSession.resultKey) return;
+
+      const sessionId = generateId();
+      const session: AnalysisSession = {
+        id: sessionId,
+        filename: `[Rerun] ${originalSession.filename}`,
+        s3Key: originalSession.s3Key,
+        startedAt: new Date(),
+        status: 'running',
+        progress: [],
+        isRerun: true,
+        originalResultKey: originalSession.resultKey,
+      };
+      setSessions((prev) => [session, ...prev]);
+      setActiveSessionId(sessionId);
+
+      try {
+        const { rerun_id } = await requestRerun(originalSession.resultKey, requiredKeywords, optionalKeywords);
+
+        wsRef.current = connectRerun(
+          rerun_id,
+          (msg: ProgressMessage) => {
+            setSessions((prev) =>
+              prev.map((s) => {
+                if (s.id !== sessionId) return s;
+                const newProgress = [...s.progress, msg];
+
+                if (msg.status === 'completed' && msg.result_key) {
+                  fetchResults(msg.result_key).then((report) => {
+                    updateSession(sessionId, {
+                      report,
+                      status: 'completed',
+                      resultKey: msg.result_key,
+                      durationSeconds: msg.duration_seconds,
+                    });
+                  }).catch(() => {
+                    updateSession(sessionId, { status: 'error', error: 'Failed to fetch rerun results' });
+                  });
+                  return { ...s, progress: newProgress, resultKey: msg.result_key };
+                }
+
+                if (msg.status === 'error') {
+                  return { ...s, progress: newProgress, status: 'error', error: msg.error };
+                }
+
+                return { ...s, progress: newProgress };
+              }),
+            );
+          },
+          (_error) => {
+            updateSession(sessionId, { status: 'error', error: 'WebSocket error during rerun' });
+          },
+          () => {},
+        );
+      } catch (err) {
+        updateSession(sessionId, {
+          status: 'error',
+          error: err instanceof Error ? err.message : 'Rerun failed',
+        });
+      }
+    },
+    [updateSession],
+  );
+
   const selectSession = useCallback((id: string) => {
     setActiveSessionId(id);
   }, []);
@@ -167,6 +233,7 @@ export function usePipeline() {
     sessions,
     activeSession,
     startAnalysis,
+    rerunWithKeywords,
     selectSession,
     newAnalysis,
   };

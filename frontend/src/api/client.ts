@@ -34,3 +34,24 @@ export async function checkStatus(): Promise<{
   const res = await fetch(`${API_BASE}/status`);
   return res.json();
 }
+
+export async function requestRerun(
+  resultKey: string,
+  requiredKeywords: string[],
+  optionalKeywords: string[],
+): Promise<{ rerun_id: string }> {
+  const res = await fetch(`${API_BASE}/rerun`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      result_key: resultKey,
+      required_keywords: requiredKeywords,
+      optional_keywords: optionalKeywords,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Rerun request failed' }));
+    throw new Error(err.detail || 'Rerun request failed');
+  }
+  return res.json();
+}

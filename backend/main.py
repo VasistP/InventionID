@@ -9,9 +9,10 @@ from fastapi import FastAPI, Form, UploadFile, File, WebSocket, WebSocketDisconn
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
 from config import S3_BUCKET, S3_INPUT_PREFIX, S3_RESULTS_PREFIX, ALLOWED_ORIGINS, MAX_UPLOAD_SIZE_MB
-from pipeline_runner import run_pipeline_with_progress, PipelineAlreadyRunningError, _pipeline_lock
+from pipeline_runner import run_pipeline_with_progress, run_rerun_with_progress, PipelineAlreadyRunningError, _pipeline_lock
 
 app = FastAPI(title="Patent Analysis API")
 
@@ -32,6 +33,15 @@ _current_run_lock = threading.Lock()
 
 # Temporary in-memory store for user invention inputs keyed by s3_key
 _user_inputs: dict = {}
+
+# In-memory store for pending rerun jobs keyed by rerun_id
+_rerun_params: dict = {}
+
+
+class RerunRequest(BaseModel):
+    result_key: str
+    required_keywords: list[str] = []
+    optional_keywords: list[str] = []
 
 
 # ── REST Endpoints ──────────────────────────────────────────
@@ -154,6 +164,85 @@ async def pipeline_websocket(websocket: WebSocket, s3_key: str):
                 break
     except WebSocketDisconnect:
         pass  # Client disconnected; pipeline continues in background
+
+
+# ── Rerun Endpoints ─────────────────────────────────────────
+
+
+@app.post("/api/rerun")
+async def setup_rerun(req: RerunRequest):
+    """Register a keyword-refined rerun job and return a rerun_id."""
+    try:
+        _s3().head_object(Bucket=S3_BUCKET, Key=req.result_key)
+    except Exception:
+        raise HTTPException(404, "Original report not found in S3")
+
+    rerun_id = f"rerun_{int(time.time())}_{abs(hash(req.result_key)) % 10000:04d}"
+    _rerun_params[rerun_id] = {
+        "result_key": req.result_key,
+        "required_keywords": req.required_keywords,
+        "optional_keywords": req.optional_keywords,
+    }
+    return {"rerun_id": rerun_id}
+
+
+@app.websocket("/ws/rerun/{rerun_id}")
+async def rerun_websocket(websocket: WebSocket, rerun_id: str):
+    """Stream progress for a keyword-refined rerun over WebSocket."""
+    await websocket.accept()
+
+    params = _rerun_params.get(rerun_id)
+    if not params:
+        await websocket.send_json({
+            "stage": -1, "stage_name": "Invalid rerun", "status": "error",
+            "error": "Rerun ID not found or expired",
+        })
+        await websocket.close()
+        return
+
+    loop = asyncio.get_event_loop()
+    progress_queue: asyncio.Queue = asyncio.Queue()
+
+    def progress_callback(data: dict):
+        asyncio.run_coroutine_threadsafe(progress_queue.put(data), loop)
+
+    def run_in_thread():
+        try:
+            run_rerun_with_progress(
+                S3_BUCKET,
+                params["result_key"],
+                params["required_keywords"],
+                params["optional_keywords"],
+                progress_callback=progress_callback,
+            )
+        except PipelineAlreadyRunningError:
+            asyncio.run_coroutine_threadsafe(
+                progress_queue.put({
+                    "stage": -1, "stage_name": "Pipeline busy", "status": "error",
+                    "error": "A full pipeline is running. Please wait and try again.",
+                }),
+                loop,
+            )
+        except Exception as e:
+            asyncio.run_coroutine_threadsafe(
+                progress_queue.put({
+                    "stage": -1, "stage_name": "Rerun error", "status": "error",
+                    "error": str(e),
+                }),
+                loop,
+            )
+
+    thread = threading.Thread(target=run_in_thread, daemon=True)
+    thread.start()
+
+    try:
+        while True:
+            msg = await progress_queue.get()
+            await websocket.send_json(msg)
+            if msg.get("status") == "error" or (msg.get("status") == "completed" and msg.get("stage") == 7):
+                break
+    except WebSocketDisconnect:
+        pass  # Client disconnected; rerun continues in background
 
 
 # ── Static Frontend ─────────────────────────────────────────

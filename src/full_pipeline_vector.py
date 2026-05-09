@@ -313,13 +313,15 @@ def stage_1_extract_invention(sections):
     return None, log_file, None
 
 
-def stage_2_generate_queries(invention, user_invention_input=""):
+def stage_2_generate_queries(invention, user_invention_input="", optional_keywords=None):
     """Stage 2: Generate search queries using a two-call approach.
 
     Call 1 extracts concepts, synonym chains, and novelty axes into a
     structured scratchpad (verifiable intermediate output).
     Call 2 uses that scratchpad as grounded context to produce the final
     query list, replacing silent internal reasoning with explicit output.
+
+    optional_keywords: list of keyword hints the LLM may incorporate into queries.
 
     Returns (queries, scratchpad) — scratchpad is the concept extraction
     dict or {} if Call 1 failed (fallback to single-call mode).
@@ -332,7 +334,9 @@ def stage_2_generate_queries(invention, user_invention_input=""):
     scratchpad = {}
     try:
         print("  Step 2a: Extracting concepts and synonym chains...")
-        scratchpad_prompt = PromptTemplates.generate_concept_scratchpad(invention, user_invention_input=user_invention_input)
+        scratchpad_prompt = PromptTemplates.generate_concept_scratchpad(
+            invention, user_invention_input=user_invention_input, optional_keywords=optional_keywords
+        )
         scratchpad = call_bedrock_json(scratchpad_prompt, max_tokens=1200, model_id=MODEL_QUERY_GEN) or {}
         if scratchpad:
             print(f"  Statutory category: {scratchpad.get('statutory_category', '?')}")
@@ -351,7 +355,7 @@ def stage_2_generate_queries(invention, user_invention_input=""):
         try:
             print("  Step 2b: Generating queries from extracted concepts...")
             query_prompt = PromptTemplates.generate_queries_from_scratchpad(
-                invention, scratchpad, num_queries=NUM_SEARCH_QUERIES
+                invention, scratchpad, num_queries=NUM_SEARCH_QUERIES, optional_keywords=optional_keywords
             )
             queries = call_bedrock_json(query_prompt, max_tokens=1500, model_id=MODEL_QUERY_GEN)
         except Exception as e:
@@ -370,6 +374,21 @@ def stage_2_generate_queries(invention, user_invention_input=""):
             print(f"    - {q}")
 
     return queries or [], scratchpad
+
+
+def apply_required_keywords(queries: list, required_keywords: list) -> list:
+    """Append each required keyword to every query using AND logic.
+
+    Single-word keyword → AND keyword
+    Multi-word phrase   → AND "multi word phrase"
+    """
+    for kw in required_keywords:
+        kw = kw.strip()
+        if not kw:
+            continue
+        term = f'"{kw}"' if ' ' in kw else kw
+        queries = [f'{q} AND {term}' for q in queries]
+    return queries
 
 
 def stage_3_search_patents(queries, max_concurrent: int = MAX_SEARCH_CONCURRENT):
@@ -883,6 +902,193 @@ def stage_6_generate_report(invention, patents, analysis, patentability=None, de
 # ============================================================
 # MAIN PIPELINE
 # ============================================================
+
+def run_pipeline_from_search(bucket, result_key, required_keywords=None, optional_keywords=None, progress_callback=None):
+    """Run pipeline stages 2-7 using an existing invention from a completed report.
+
+    Fetches the invention dict from the S3 result_key, then re-runs search
+    query generation through report generation with optional keyword overrides.
+    Saves the new report under a timestamped rerun key derived from result_key.
+    """
+    _init_components()
+    required_keywords = required_keywords or []
+    optional_keywords = optional_keywords or []
+
+    def _emit(stage, stage_name, status="running", **extra):
+        if progress_callback:
+            progress_callback({"stage": stage, "stage_name": stage_name, "status": status, **extra})
+
+    print("\n" + "#"*60)
+    print("PATENT PRIOR ART SEARCH PIPELINE (Keyword Rerun, Stages 2-7)")
+    print("#"*60)
+    print(f"Original report: s3://{bucket}/{result_key}")
+
+    # Fetch invention from existing report
+    try:
+        obj = s3.get_object(Bucket=bucket, Key=result_key)
+        existing_report = json.loads(obj["Body"].read())
+        invention = existing_report.get("invention")
+        if not invention:
+            _emit(-1, "Invalid report", status="error", error="Existing report has no invention field")
+            return {"error": "Existing report has no invention field"}
+    except Exception as e:
+        _emit(-1, "Failed to load report", status="error", error=str(e))
+        return {"error": f"Failed to load existing report: {e}"}
+
+    queries = []
+    patents = []
+    query_counts: dict = {}
+    concept_scratchpad: dict = {}
+    cached_inv_vec = None
+    detailed = []
+    analysis = []
+    papers = []
+    detailed_papers = []
+    analysis_arxiv = []
+
+    # Stage 2: Generate queries with optional keywords, then apply required keywords
+    _emit(2, "Generating search queries (refined)")
+    try:
+        queries, concept_scratchpad = stage_2_generate_queries(
+            invention, optional_keywords=optional_keywords or None
+        )
+    except JsonParseExhaustedError:
+        _emit(-1, "Query generation failed", status="error", error="JSON parse exhausted in Stage 2")
+        return {"error": "JSON parse exhausted in Stage 2"}
+    except Exception as e:
+        print(f"  Stage 2 failed: {e}")
+
+    if required_keywords and queries:
+        queries = apply_required_keywords(queries, required_keywords)
+        print(f"  Applied {len(required_keywords)} required keyword(s) to all {len(queries)} queries")
+
+    if not queries:
+        print("  WARNING: No search queries generated — skipping patent search stages")
+    else:
+        # Stage 3: Patent + scholar searches run simultaneously
+        _emit(3, "Searching patents and papers", detail=f"{len(queries)} queries")
+        with ThreadPoolExecutor(max_workers=2) as ex:
+            f_patents = ex.submit(stage_3_search_patents, queries)
+            f_papers  = ex.submit(stage_3_search_scholar, queries)
+            try:
+                patents, query_counts = f_patents.result()
+            except Exception as e:
+                print(f"  Stage 3 patent search failed: {e}")
+            try:
+                papers = f_papers.result()
+            except Exception as e:
+                print(f"  Stage 3 scholar search failed: {e}")
+
+        if patents or papers:
+            _emit(3, "Ranking candidates by vector similarity")
+            try:
+                patents, papers, cached_inv_vec = stage_3b_rank_by_similarity(invention, patents, papers)
+            except Exception as e:
+                print(f"  Stage 3b vector ranking failed: {e} — falling back to arrival order.")
+
+        if not patents and not papers:
+            print("  WARNING: No patents or papers found — skipping analysis stages")
+        else:
+            _emit(4, "Fetching details", detail=f"{len(patents)} patents, {len(papers)} papers")
+            with ThreadPoolExecutor(max_workers=2) as ex:
+                f_detailed        = ex.submit(stage_4_fetch_details, patents)
+                f_detailed_papers = ex.submit(stage_4_fetch_scholar_details, papers)
+                try:
+                    detailed = f_detailed.result()
+                except Exception as e:
+                    print(f"  Stage 4 patent details failed: {e}")
+                    detailed = patents
+                try:
+                    detailed_papers = f_detailed_papers.result()
+                except Exception as e:
+                    print(f"  Stage 4 scholar detail fetch failed: {e}")
+                    detailed_papers = papers
+
+            _emit(4, "Re-ranking by full text (abstract + claims)")
+            try:
+                detailed = stage_4b_rerank_by_full_text(invention, detailed, cached_inv_vec=cached_inv_vec)
+            except Exception as e:
+                print(f"  Stage 4b full-text re-rank failed: {e} — keeping Stage 4 order.")
+
+            _emit(5, "Analyzing prior art", detail=f"{len(detailed)} patents, {len(detailed_papers)} papers")
+            with ThreadPoolExecutor(max_workers=2) as ex:
+                f_analysis = ex.submit(stage_5_analyze_patents, invention, detailed)
+                f_arxiv    = ex.submit(stage_5_analyze_scholar_papers, invention, detailed_papers)
+                try:
+                    analysis = f_analysis.result()
+                except JsonParseExhaustedError:
+                    _emit(-1, "Analysis failed", status="error", error="JSON parse exhausted in Stage 5")
+                    return {"error": "JSON parse exhausted in Stage 5"}
+                except Exception as e:
+                    print(f"  Stage 5 patent analysis failed: {e}")
+                try:
+                    analysis_arxiv = f_arxiv.result()
+                except JsonParseExhaustedError:
+                    _emit(-1, "Analysis failed", status="error", error="JSON parse exhausted in Stage 5 scholar")
+                    return {"error": "JSON parse exhausted in Stage 5 scholar"}
+                except Exception as e:
+                    print(f"  Stage 5 paper analysis failed: {e}")
+
+    # Stage 6: Report
+    _emit(6, "Generating final report")
+    report = stage_6_generate_report(
+        invention,
+        detailed or patents,
+        analysis,
+        patentability=None,
+        detailed_papers=detailed_papers,
+        analysis_papers=analysis_arxiv,
+        user_invention_input="",
+    )
+
+    # Attach run metadata
+    report["run_metadata"] = {
+        "pipeline_version": "2.0.0-vector-ranked",
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "models": {
+            "extraction": MODEL_EXTRACTION,
+            "query_generation": MODEL_QUERY_GEN,
+            "patent_analysis": MODEL_ANALYSIS,
+            "embedding": "amazon.titan-embed-text-v2:0",
+        },
+        "retrieval_config": {
+            "max_patents_fetched": MAX_PATENTS_TO_FETCH,
+            "max_patents_analyzed": MAX_PATENTS_TO_ANALYZE,
+            "max_search_queries": NUM_SEARCH_QUERIES,
+            "ranking": "faiss-cosine-similarity",
+            "full_text_rerank": True,
+        },
+        "query_counts": query_counts,
+        "concept_map": concept_scratchpad,
+        "rerun": True,
+        "original_result_key": result_key,
+        "required_keywords": required_keywords,
+        "optional_keywords": optional_keywords,
+    }
+
+    # Preserve patentability and user_input_analysis from original report
+    if existing_report.get("run_metadata", {}).get("patentability"):
+        pass  # patentability is embedded in invention, already carried through
+    if existing_report.get("user_input_analysis"):
+        report["user_input_analysis"] = existing_report["user_input_analysis"]
+
+    # Derive output key and save
+    ts = int(datetime.utcnow().timestamp())
+    if result_key.endswith("_report.json"):
+        output_key = result_key[:-len("_report.json")] + f"_rerun_{ts}_report.json"
+    else:
+        output_key = result_key + f"_rerun_{ts}.json"
+
+    report_body = json.dumps(report, indent=2)
+    try:
+        s3.put_object(Bucket=bucket, Key=output_key, Body=report_body, ContentType="application/json")
+        print(f"\nRerun report saved: s3://{bucket}/{output_key}")
+    except Exception as e:
+        print(f"  Failed to save rerun report to S3: {e}")
+
+    _emit(7, "Complete", status="completed", result_key=output_key)
+    return report
+
 
 def run_pipeline(bucket, pdf_key, max_pipeline_retries=2, progress_callback=None, user_invention_input=""):
     """

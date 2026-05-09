@@ -11,6 +11,59 @@ interface ResultsDisplayProps {
   report: PipelineReport;
   progress: ProgressMessage[];
   durationSeconds?: number;
+  onRerun?: (required: string[], optional: string[]) => void;
+}
+
+function RefineSearchPanel({ onRerun }: { onRerun: (req: string[], opt: string[]) => void }) {
+  const [requiredRaw, setRequiredRaw] = useState('');
+  const [optionalRaw, setOptionalRaw] = useState('');
+  function parse(raw: string): string[] {
+    return raw.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+  const canSubmit = requiredRaw.trim() !== '' || optionalRaw.trim() !== '';
+  return (
+    <div className="border border-blue-200 rounded-lg p-5 bg-blue-50 print:hidden">
+      <h3 className="text-base font-semibold text-gray-800 mb-1">Refine Search</h3>
+      <p className="text-xs text-gray-500 mb-4">
+        Re-run the search (Stages 2–7) with keyword constraints. Comma-separate multiple keywords.
+      </p>
+      <div className="grid gap-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Required Keywords{' '}
+            <span className="text-gray-400 font-normal">(included in ALL queries)</span>
+          </label>
+          <input
+            type="text"
+            value={requiredRaw}
+            onChange={(e) => setRequiredRaw(e.target.value)}
+            placeholder="e.g. lithium, solid electrolyte"
+            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Optional Keywords{' '}
+            <span className="text-gray-400 font-normal">(agent may incorporate)</span>
+          </label>
+          <input
+            type="text"
+            value={optionalRaw}
+            onChange={(e) => setOptionalRaw(e.target.value)}
+            placeholder="e.g. ceramic coating, ionic conductivity"
+            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+        <button
+          onClick={() => onRerun(parse(requiredRaw), parse(optionalRaw))}
+          disabled={!canSubmit}
+          className="self-start px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded text-sm font-medium transition-colors"
+        >
+          Rerun from Search
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function formatDuration(seconds: number): string {
@@ -106,7 +159,7 @@ function UserInputAnalysisCard({ analysis }: { analysis: UserInputAnalysis }) {
   );
 }
 
-export function ResultsDisplay({ report, progress, durationSeconds }: ResultsDisplayProps) {
+export function ResultsDisplay({ report, progress, durationSeconds, onRerun }: ResultsDisplayProps) {
   const handleDownloadPdf = () => {
     window.print();
   };
@@ -192,6 +245,8 @@ export function ResultsDisplay({ report, progress, durationSeconds }: ResultsDis
       {report.user_input_analysis && (
         <UserInputAnalysisCard analysis={report.user_input_analysis} />
       )}
+
+      {onRerun && <RefineSearchPanel onRerun={onRerun} />}
 
       {report.run_metadata?.query_counts && Object.keys(report.run_metadata.query_counts).length > 0 && (
         <QueryCountsPanel queryCounts={report.run_metadata.query_counts} />

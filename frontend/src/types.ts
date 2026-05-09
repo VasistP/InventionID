@@ -145,6 +145,8 @@ export interface AnalysisSession {
   resultKey?: string;
   error?: string;
   durationSeconds?: number;
+  isRerun?: boolean;
+  originalResultKey?: string;
 }
 
 export const STAGE_LABELS: Record<number, string> = {

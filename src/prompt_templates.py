@@ -197,7 +197,7 @@ The list must contain exactly {num_queries} strings.
 """
 
     @staticmethod
-    def generate_concept_scratchpad(invention_data: dict, user_invention_input: str = "") -> str:
+    def generate_concept_scratchpad(invention_data: dict, user_invention_input: str = "", optional_keywords=None) -> str:
         """
         Call 1 of the two-call query generation pipeline.
         Extracts concepts with specificity ratings, patent-drafter synonyms,
@@ -255,7 +255,11 @@ From the well-placed concepts, identify the 3 keywords that best represent the i
 
 Use this as additional context when identifying concepts and novelty focus. Prioritize the technical document above if there is any conflict.
 
-''' if user_invention_input.strip() else ''}## OUTPUT FORMAT
+''' if user_invention_input.strip() else ''}{f'''## ADDITIONAL VOCABULARY (user-requested optional keywords)
+The user has requested these keywords be considered: {", ".join(optional_keywords)}
+Where technically accurate, ensure these terms are represented in the concept list. Do not force them if they do not fit the invention.
+
+''' if optional_keywords else ''}## OUTPUT FORMAT
 Output ONLY valid JSON matching this schema:
 
 {{
@@ -284,7 +288,7 @@ Output ONLY the JSON object. No explanations or commentary.
 """
 
     @staticmethod
-    def generate_queries_from_scratchpad(invention_data: dict, scratchpad: dict, num_queries: int = 15) -> str:
+    def generate_queries_from_scratchpad(invention_data: dict, scratchpad: dict, num_queries: int = 15, optional_keywords=None) -> str:
         """
         Call 2 of the two-call query generation pipeline.
         Uses vocabulary lock (every query term must come from the verified
@@ -321,6 +325,18 @@ Output ONLY the JSON object. No explanations or commentary.
         broad_n = max(2, num_queries // 3)
         focused_n = max(3, num_queries // 3 + (1 if num_queries % 3 > 0 else 0))
         narrow_n = num_queries - broad_n - focused_n
+
+        optional_kw_block = ""
+        if optional_keywords:
+            kw_lines = "\n".join(f"  - {kw}" for kw in optional_keywords)
+            optional_kw_block = (
+                "## OPTIONAL KEYWORD GUIDANCE\n"
+                "The user has requested these optional keywords be incorporated where meaningful:\n"
+                f"{kw_lines}\n"
+                "You MAY use these in queries if they are technically relevant to the invention and complement "
+                "the USE list above. They do not override the vocabulary lock — only incorporate them when they "
+                "add genuine search value.\n\n"
+            )
 
         return f"""You are a patent agent generating Google Patents search queries to find prior art.
 
@@ -367,7 +383,7 @@ USE: <term>, <term>, ...
 
 Before writing each query, scan every quoted term against the USE list. If any term is not there, replace it with the nearest USE-list equivalent or remove it.
 
-## STEP 3 — GENERATE QUERIES ACROSS THREE TIERS (target 7-{num_queries} total)
+{optional_kw_block}## STEP 3 — GENERATE QUERIES ACROSS THREE TIERS (target 7-{num_queries} total)
 
 Suggested distribution: ~{broad_n} broad · ~{focused_n} focused · ~{narrow_n} narrow. **Quality over quantity: stop adding queries when you have confident §102 coverage. Do not pad to reach the maximum.**
 
