@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { uploadPdf, fetchResults, checkStatus, requestRerun } from '../api/client';
+import { uploadPdf, fetchResults, checkStatus, requestRerun, UnauthorizedError } from '../api/client';
 import { connectPipeline, connectRerun } from '../api/websocket';
 import type { ProgressMessage, AnalysisSession } from '../types';
 
@@ -7,7 +7,7 @@ function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
-export function usePipeline() {
+export function usePipeline(userId: string, getToken: () => string | null) {
   const [sessions, setSessions] = useState<AnalysisSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -25,43 +25,47 @@ export function usePipeline() {
       if (pollingRef.current) return;
       pollingRef.current = setInterval(async () => {
         try {
-          const status = await checkStatus();
+          const token = getToken();
+          const status = await checkStatus(token);
           if (!status.busy) {
-            // Pipeline finished — try to get results
             if (pollingRef.current) {
               clearInterval(pollingRef.current);
               pollingRef.current = null;
             }
             if (status.result_key) {
               try {
-                const report = await fetchResults(status.result_key);
+                const report = await fetchResults(status.result_key, token);
                 const completedMsg = status.progress?.find((p: ProgressMessage) => p.status === 'completed');
                 updateSession(sessionId, { report, status: 'completed', resultKey: status.result_key, durationSeconds: completedMsg?.duration_seconds });
               } catch {
                 updateSession(sessionId, { status: 'error', error: 'Pipeline finished but failed to fetch results' });
               }
             } else if (status.status === 'completed' && status.result_key) {
-              const report = await fetchResults(status.result_key);
+              const report = await fetchResults(status.result_key, token);
               const completedMsg = status.progress?.find((p: ProgressMessage) => p.status === 'completed');
               updateSession(sessionId, { report, status: 'completed', durationSeconds: completedMsg?.duration_seconds });
             } else {
               updateSession(sessionId, { status: 'error', error: 'Pipeline finished without results' });
             }
           } else if (status.progress) {
-            // Update progress from server state
             updateSession(sessionId, { progress: status.progress });
           }
-        } catch {
-          // Network error — keep polling
+        } catch (err) {
+          if (err instanceof UnauthorizedError) {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+          }
+          // Other network errors — keep polling
         }
       }, 3000);
     },
-    [updateSession],
+    [getToken, updateSession],
   );
 
   // On mount: check if a pipeline is already running (page refresh recovery)
   useEffect(() => {
-    checkStatus().then((status) => {
+    if (!userId) return;
+    const token = getToken();
+    checkStatus(token).then((status) => {
       if (status.busy && status.s3_key) {
         const sessionId = generateId();
         const filename = status.s3_key.split('/').pop()?.replace(/^\d+_/, '') ?? 'unknown.pdf';
@@ -79,10 +83,11 @@ export function usePipeline() {
       }
     }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [userId]);
 
   const startAnalysis = useCallback(
-    async (file: File, userInventionInput: string = "") => {
+    async (file: File, userInventionInput: string = '') => {
+      const token = getToken();
       const sessionId = generateId();
 
       const session: AnalysisSession = {
@@ -97,11 +102,13 @@ export function usePipeline() {
       setActiveSessionId(sessionId);
 
       try {
-        const { s3_key } = await uploadPdf(file, userInventionInput);
+        const { s3_key } = await uploadPdf(file, userInventionInput, token);
         updateSession(sessionId, { s3Key: s3_key, status: 'running' });
 
+        const currentToken = getToken() ?? '';
         wsRef.current = connectPipeline(
           s3_key,
+          currentToken,
           (msg: ProgressMessage) => {
             setSessions((prev) =>
               prev.map((s) => {
@@ -109,7 +116,7 @@ export function usePipeline() {
                 const newProgress = [...s.progress, msg];
 
                 if (msg.status === 'completed' && msg.result_key) {
-                  fetchResults(msg.result_key).then((report) => {
+                  fetchResults(msg.result_key, getToken()).then((report) => {
                     updateSession(sessionId, {
                       report,
                       status: 'completed',
@@ -133,15 +140,11 @@ export function usePipeline() {
             );
           },
           (_error) => {
-            // WebSocket error — fall back to polling
             startPolling(sessionId);
           },
           () => {
-            // WebSocket closed — check if pipeline is still running and poll if so
-            checkStatus().then((status) => {
-              if (status.busy) {
-                startPolling(sessionId);
-              }
+            checkStatus(getToken()).then((status) => {
+              if (status.busy) startPolling(sessionId);
             }).catch(() => {});
           },
         );
@@ -152,13 +155,14 @@ export function usePipeline() {
         });
       }
     },
-    [updateSession, startPolling],
+    [getToken, updateSession, startPolling],
   );
 
   const rerunWithKeywords = useCallback(
     async (originalSession: AnalysisSession, requiredKeywords: string[], optionalKeywords: string[]) => {
       if (!originalSession.resultKey) return;
 
+      const token = getToken();
       const sessionId = generateId();
       const session: AnalysisSession = {
         id: sessionId,
@@ -174,10 +178,17 @@ export function usePipeline() {
       setActiveSessionId(sessionId);
 
       try {
-        const { rerun_id } = await requestRerun(originalSession.resultKey, requiredKeywords, optionalKeywords);
+        const { rerun_id } = await requestRerun(
+          originalSession.resultKey,
+          requiredKeywords,
+          optionalKeywords,
+          token,
+        );
 
+        const currentToken = getToken() ?? '';
         wsRef.current = connectRerun(
           rerun_id,
+          currentToken,
           (msg: ProgressMessage) => {
             setSessions((prev) =>
               prev.map((s) => {
@@ -185,7 +196,7 @@ export function usePipeline() {
                 const newProgress = [...s.progress, msg];
 
                 if (msg.status === 'completed' && msg.result_key) {
-                  fetchResults(msg.result_key).then((report) => {
+                  fetchResults(msg.result_key, getToken()).then((report) => {
                     updateSession(sessionId, {
                       report,
                       status: 'completed',
@@ -218,7 +229,7 @@ export function usePipeline() {
         });
       }
     },
-    [updateSession],
+    [getToken, updateSession],
   );
 
   const selectSession = useCallback((id: string) => {

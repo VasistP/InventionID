@@ -5,6 +5,8 @@ interface SidebarProps {
   activeId: string | null;
   onSelect: (id: string) => void;
   onNew: () => void;
+  userName?: string;
+  onLogout?: () => void;
 }
 
 function StatusIcon({ status }: { status: AnalysisSession['status'] }) {
@@ -21,7 +23,7 @@ function StatusIcon({ status }: { status: AnalysisSession['status'] }) {
   }
 }
 
-export function Sidebar({ sessions, activeId, onSelect, onNew }: SidebarProps) {
+export function Sidebar({ sessions, activeId, onSelect, onNew, userName, onLogout }: SidebarProps) {
   return (
     <aside className="w-64 min-w-[16rem] bg-gray-900 text-gray-100 flex flex-col border-r border-gray-700">
       <div className="p-4 border-b border-gray-700">
@@ -34,7 +36,7 @@ export function Sidebar({ sessions, activeId, onSelect, onNew }: SidebarProps) {
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto p-2">
+      <nav className="flex-1 overflow-y-auto p-2 min-h-0">
         {sessions.length === 0 && (
           <p className="text-gray-500 text-sm text-center mt-8">No analyses yet</p>
         )}
@@ -58,6 +60,22 @@ export function Sidebar({ sessions, activeId, onSelect, onNew }: SidebarProps) {
           </button>
         ))}
       </nav>
+
+      {(userName || onLogout) && (
+        <div className="p-3 border-t border-gray-700 flex items-center justify-between gap-2">
+          {userName && (
+            <span className="text-xs text-gray-400 truncate" title={userName}>{userName}</span>
+          )}
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="text-xs text-gray-500 hover:text-gray-300 whitespace-nowrap transition-colors"
+            >
+              Sign out
+            </button>
+          )}
+        </div>
+      )}
     </aside>
   );
 }

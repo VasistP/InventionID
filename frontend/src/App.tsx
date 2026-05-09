@@ -1,11 +1,28 @@
+import { useAuth } from './hooks/useAuth';
 import { usePipeline } from './hooks/usePipeline';
+import { LoginPage } from './components/LoginPage';
 import { Sidebar } from './components/Sidebar';
 import { UploadArea } from './components/UploadArea';
 import { ProgressTracker } from './components/ProgressTracker';
 import { ResultsDisplay } from './components/ResultsDisplay';
 
 export default function App() {
-  const { sessions, activeSession, startAnalysis, rerunWithKeywords, selectSession, newAnalysis } = usePipeline();
+  const { token, user, loading, authError, login, logout, getToken } = useAuth();
+
+  const { sessions, activeSession, startAnalysis, rerunWithKeywords, selectSession, newAnalysis } =
+    usePipeline(user?.userId ?? '', getToken);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-400 text-sm">Loading…</div>
+      </div>
+    );
+  }
+
+  if (!token || !user) {
+    return <LoginPage onLogin={login} authError={authError} />;
+  }
 
   const isRunning = activeSession?.status === 'running' || activeSession?.status === 'uploading';
   const showUpload = !activeSession && !isRunning;
@@ -20,6 +37,8 @@ export default function App() {
         activeId={activeSession?.id ?? null}
         onSelect={selectSession}
         onNew={newAnalysis}
+        userName={user.name || user.email}
+        onLogout={logout}
       />
 
       <main className="flex-1 overflow-y-auto p-8">
