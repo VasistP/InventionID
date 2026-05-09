@@ -1,9 +1,10 @@
 import { API_BASE } from '../config';
 import type { PipelineReport } from '../types';
 
-export async function uploadPdf(file: File): Promise<{ s3_key: string; filename: string }> {
+export async function uploadPdf(file: File, userInventionInput: string = ""): Promise<{ s3_key: string; filename: string }> {
   const formData = new FormData();
   formData.append('file', file);
+  formData.append('user_invention_input', userInventionInput);
 
   const res = await fetch(`${API_BASE}/upload`, {
     method: 'POST',

@@ -110,6 +110,15 @@ export interface ScholarPaper {
   analysis?: ScholarPaperAnalysis;
 }
 
+export interface UserInputAnalysis {
+  user_invention_input: string;
+  verdict: 'is_invention' | 'not_invention' | 'partial_invention';
+  reasoning: string;
+  alignment: string;
+  gaps: string[];
+  recommendation: string;
+}
+
 export interface PipelineReport {
   invention: Invention;
   patents_found: number;
@@ -122,6 +131,7 @@ export interface PipelineReport {
   scholar_papers_analyzed?: number;
   scholar_papers?: ScholarPaper[];
   run_metadata?: RunMetadata;
+  user_input_analysis?: UserInputAnalysis;
 }
 
 export interface AnalysisSession {

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import type { PipelineReport, Patent, ScholarPaper, ProgressMessage } from '../types';
+import type { PipelineReport, Patent, ScholarPaper, ProgressMessage, UserInputAnalysis } from '../types';
 import { SummaryHeader } from './SummaryHeader';
 import { PatentCard } from './PatentCard';
 import { PaperCard } from './PaperCard';
@@ -55,6 +55,53 @@ function CollapsibleGroup({
         <span className="ml-auto"><ChevronIcon open={open} /></span>
       </button>
       {open && <div className="grid gap-4">{children}</div>}
+    </div>
+  );
+}
+
+const VERDICT_STYLES = {
+  is_invention:      { label: 'Likely an Invention',          bg: 'bg-green-50',  border: 'border-green-200', badge: 'bg-green-100 text-green-800' },
+  partial_invention: { label: 'Partially an Invention',       bg: 'bg-yellow-50', border: 'border-yellow-200', badge: 'bg-yellow-100 text-yellow-800' },
+  not_invention:     { label: 'May Not Be a Patentable Invention', bg: 'bg-red-50', border: 'border-red-200', badge: 'bg-red-100 text-red-800' },
+};
+
+function UserInputAnalysisCard({ analysis }: { analysis: UserInputAnalysis }) {
+  const style = VERDICT_STYLES[analysis.verdict] ?? VERDICT_STYLES.partial_invention;
+  return (
+    <div className={`rounded-lg border p-5 ${style.bg} ${style.border}`}>
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <h3 className="text-base font-semibold text-gray-800">Your Description Assessment</h3>
+        <span className={`shrink-0 text-xs font-medium px-2.5 py-1 rounded-full ${style.badge}`}>
+          {style.label}
+        </span>
+      </div>
+      <blockquote className="text-sm text-gray-600 italic border-l-2 border-gray-300 pl-3 mb-3">
+        "{analysis.user_invention_input}"
+      </blockquote>
+      <p className="text-sm text-gray-700 mb-3">{analysis.reasoning}</p>
+      {analysis.alignment && (
+        <div className="mb-2">
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">What aligned</span>
+          <p className="text-sm text-gray-700 mt-0.5">{analysis.alignment}</p>
+        </div>
+      )}
+      {analysis.gaps?.length > 0 && (
+        <div className="mb-2">
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Gaps identified</span>
+          <ul className="mt-0.5 space-y-0.5">
+            {analysis.gaps.map((gap, i) => (
+              <li key={i} className="text-sm text-gray-700 flex gap-1.5">
+                <span className="text-gray-400 mt-0.5">•</span>{gap}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {analysis.recommendation && (
+        <p className="text-sm text-gray-600 mt-3 pt-3 border-t border-gray-200">
+          <span className="font-medium">Recommendation: </span>{analysis.recommendation}
+        </p>
+      )}
     </div>
   );
 }
@@ -141,6 +188,10 @@ export function ResultsDisplay({ report, progress, durationSeconds }: ResultsDis
       )}
 
       <SummaryHeader report={report} />
+
+      {report.user_input_analysis && (
+        <UserInputAnalysisCard analysis={report.user_input_analysis} />
+      )}
 
       {report.run_metadata?.query_counts && Object.keys(report.run_metadata.query_counts).length > 0 && (
         <QueryCountsPanel queryCounts={report.run_metadata.query_counts} />

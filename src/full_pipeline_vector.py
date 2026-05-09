@@ -313,7 +313,7 @@ def stage_1_extract_invention(sections):
     return None, log_file, None
 
 
-def stage_2_generate_queries(invention):
+def stage_2_generate_queries(invention, user_invention_input=""):
     """Stage 2: Generate search queries using a two-call approach.
 
     Call 1 extracts concepts, synonym chains, and novelty axes into a
@@ -332,7 +332,7 @@ def stage_2_generate_queries(invention):
     scratchpad = {}
     try:
         print("  Step 2a: Extracting concepts and synonym chains...")
-        scratchpad_prompt = PromptTemplates.generate_concept_scratchpad(invention)
+        scratchpad_prompt = PromptTemplates.generate_concept_scratchpad(invention, user_invention_input=user_invention_input)
         scratchpad = call_bedrock_json(scratchpad_prompt, max_tokens=1200, model_id=MODEL_QUERY_GEN) or {}
         if scratchpad:
             print(f"  Statutory category: {scratchpad.get('statutory_category', '?')}")
@@ -800,7 +800,7 @@ Keys per object: "title", "relevance_score", "classification", "similarities", "
     return analysis or []
 
 
-def stage_6_generate_report(invention, patents, analysis, patentability=None, detailed_papers=None, analysis_papers=None):
+def stage_6_generate_report(invention, patents, analysis, patentability=None, detailed_papers=None, analysis_papers=None, user_invention_input=""):
     """Stage 6: Generate final report."""
     print("\n" + "="*60)
     print("STAGE 6: FINAL REPORT")
@@ -862,6 +862,21 @@ def stage_6_generate_report(invention, patents, analysis, patentability=None, de
     print(f"    Scholar papers found: {report['scholar_papers_found']}")
     print(f"    Scholar papers analyzed: {report['scholar_papers_analyzed']}")
 
+    if user_invention_input.strip():
+        print("  Evaluating inventor's stated description...")
+        user_input_assessment: dict = {}
+        try:
+            prompt = PromptTemplates.analyze_user_invention_input(
+                user_invention_input, invention_out, patentability or {}
+            )
+            user_input_assessment = call_bedrock_json(prompt, max_tokens=800, model_id=MODEL_QUERY_GEN) or {}
+        except Exception as e:
+            print(f"  WARNING: User input analysis failed ({e})")
+        if user_input_assessment:
+            user_input_assessment["user_invention_input"] = user_invention_input
+            report["user_input_analysis"] = user_input_assessment
+            print(f"  User input verdict: {user_input_assessment.get('verdict', 'unknown')}")
+
     return report
 
 
@@ -869,7 +884,7 @@ def stage_6_generate_report(invention, patents, analysis, patentability=None, de
 # MAIN PIPELINE
 # ============================================================
 
-def run_pipeline(bucket, pdf_key, max_pipeline_retries=2, progress_callback=None):
+def run_pipeline(bucket, pdf_key, max_pipeline_retries=2, progress_callback=None, user_invention_input=""):
     """
     Run the vector-ranked pipeline with automatic restart on persistent JSON
     parse failures (up to max_pipeline_retries total attempts).
@@ -879,7 +894,7 @@ def run_pipeline(bucket, pdf_key, max_pipeline_retries=2, progress_callback=None
         try:
             if attempt > 1:
                 print(f"\n  RESTARTING PIPELINE (attempt {attempt}/{max_pipeline_retries})")
-            return _run_pipeline_once(bucket, pdf_key, progress_callback=progress_callback)
+            return _run_pipeline_once(bucket, pdf_key, progress_callback=progress_callback, user_invention_input=user_invention_input)
         except JsonParseExhaustedError as e:
             print(f"\n  Pipeline attempt {attempt} failed: {e}")
             if attempt == max_pipeline_retries:
@@ -888,7 +903,7 @@ def run_pipeline(bucket, pdf_key, max_pipeline_retries=2, progress_callback=None
     return {"error": "Pipeline failed unexpectedly"}
 
 
-def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
+def _run_pipeline_once(bucket, pdf_key, progress_callback=None, user_invention_input=""):
     """Run complete vector-ranked pipeline (single attempt)."""
     def _emit(stage, stage_name, status="running", **extra):
         if progress_callback:
@@ -935,7 +950,7 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
     # Stage 2: Generate queries
     _emit(2, "Generating search queries")
     try:
-        queries, concept_scratchpad = stage_2_generate_queries(invention)
+        queries, concept_scratchpad = stage_2_generate_queries(invention, user_invention_input=user_invention_input)
     except JsonParseExhaustedError:
         raise
     except Exception as e:
@@ -1020,6 +1035,7 @@ def _run_pipeline_once(bucket, pdf_key, progress_callback=None):
         patentability=patentability,
         detailed_papers=detailed_papers,
         analysis_papers=analysis_arxiv,
+        user_invention_input=user_invention_input,
     )
 
     # Attach run metadata

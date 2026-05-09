@@ -197,7 +197,7 @@ The list must contain exactly {num_queries} strings.
 """
 
     @staticmethod
-    def generate_concept_scratchpad(invention_data: dict) -> str:
+    def generate_concept_scratchpad(invention_data: dict, user_invention_input: str = "") -> str:
         """
         Call 1 of the two-call query generation pipeline.
         Extracts concepts with specificity ratings, patent-drafter synonyms,
@@ -250,7 +250,12 @@ From the well-placed concepts, identify the 3 keywords that best represent the i
 - novelty_focus: the single most novel aspect (queries should spend the most time here)
 - known_aspects: what is already well-established prior art (spend fewer queries here)
 
-## OUTPUT FORMAT
+{f'''## INVENTOR'S OWN DESCRIPTION (supplementary hint)
+"{user_invention_input}"
+
+Use this as additional context when identifying concepts and novelty focus. Prioritize the technical document above if there is any conflict.
+
+''' if user_invention_input.strip() else ''}## OUTPUT FORMAT
 Output ONLY valid JSON matching this schema:
 
 {{
@@ -1205,6 +1210,46 @@ Format:
   "summary": "Brief comparison..."
 }}
 ```"""
+
+
+    @staticmethod
+    def analyze_user_invention_input(user_input: str, invention: dict, patentability: dict) -> str:
+        """Generate prompt to evaluate whether the inventor's stated description is a patentable invention."""
+        pat = patentability or {}
+        classification = pat.get("classification", "Unknown")
+        total_score = pat.get("total_score", "N/A")
+        justification = pat.get("justification", "N/A")
+
+        return f"""You are a patent attorney evaluating whether an inventor's self-description corresponds to a patentable invention.
+
+INVENTOR'S DESCRIPTION:
+"{user_input}"
+
+EXTRACTED INVENTION FROM DOCUMENT:
+Name: {invention.get('invention_name', 'N/A')}
+Technical description: {invention.get('technical_description', 'N/A')}
+Problem solved: {invention.get('problem_statement', 'N/A')}
+Solution approach: {invention.get('solution_approach', 'N/A')}
+Key features: {', '.join(invention.get('key_technical_features', []))}
+
+PATENTABILITY ASSESSMENT:
+Classification: {classification} (score: {total_score}/6)
+Justification: {justification}
+
+Evaluate whether the inventor's stated description corresponds to a patentable invention, considering both how well it aligns with the extracted invention and what the patentability assessment says.
+
+Return ONLY valid JSON:
+{{
+  "verdict": "is_invention",
+  "reasoning": "2-3 sentence explanation of why the description does or does not correspond to a patentable invention",
+  "alignment": "what in the inventor's description matches the patentable aspects found in the document",
+  "gaps": ["gap or missing element 1", "gap or missing element 2"],
+  "recommendation": "one actionable sentence the inventor should consider"
+}}
+
+verdict must be exactly one of: "is_invention", "not_invention", "partial_invention"
+Output ONLY the JSON object. No explanations or commentary.
+"""
 
 
 # Helper function to get invention description for prompts

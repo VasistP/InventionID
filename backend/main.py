@@ -5,7 +5,7 @@ import threading
 import time
 import os
 import boto3
-from fastapi import FastAPI, UploadFile, File, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, Form, UploadFile, File, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -30,12 +30,15 @@ def _s3():
 _current_run: dict = {}  # {"s3_key": ..., "result_key": ..., "status": ..., "progress": [...]}
 _current_run_lock = threading.Lock()
 
+# Temporary in-memory store for user invention inputs keyed by s3_key
+_user_inputs: dict = {}
+
 
 # ── REST Endpoints ──────────────────────────────────────────
 
 
 @app.post("/api/upload")
-async def upload_pdf(file: UploadFile = File(...)):
+async def upload_pdf(file: UploadFile = File(...), user_invention_input: str = Form("")):
     """Upload a PDF to S3 and return the S3 key."""
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(400, "Only PDF files are accepted")
@@ -50,6 +53,7 @@ async def upload_pdf(file: UploadFile = File(...)):
     s3_key = f"{S3_INPUT_PREFIX}{ts}_{safe_name}"
 
     _s3().put_object(Bucket=S3_BUCKET, Key=s3_key, Body=contents, ContentType="application/pdf")
+    _user_inputs[s3_key] = user_invention_input
 
     return {"s3_key": s3_key, "filename": file.filename}
 
@@ -108,7 +112,11 @@ async def pipeline_websocket(websocket: WebSocket, s3_key: str):
                 _current_run["status"] = "running"
                 _current_run["progress"] = []
 
-            run_pipeline_with_progress(S3_BUCKET, s3_key, progress_callback=progress_callback)
+            run_pipeline_with_progress(
+                S3_BUCKET, s3_key,
+                progress_callback=progress_callback,
+                user_invention_input=_user_inputs.get(s3_key, ""),
+            )
 
             with _current_run_lock:
                 _current_run["status"] = "completed"

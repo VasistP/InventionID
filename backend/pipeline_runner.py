@@ -14,7 +14,7 @@ class PipelineAlreadyRunningError(Exception):
     pass
 
 
-def run_pipeline_with_progress(bucket, pdf_key, progress_callback=None):
+def run_pipeline_with_progress(bucket, pdf_key, progress_callback=None, user_invention_input=""):
     """
     Run the patent pipeline with progress reporting.
 
@@ -41,7 +41,7 @@ def run_pipeline_with_progress(bucket, pdf_key, progress_callback=None):
             progress_callback(data)
 
         effective_callback = timed_callback if progress_callback else None
-        result = run_pipeline(bucket, pdf_key, progress_callback=effective_callback)
+        result = run_pipeline(bucket, pdf_key, progress_callback=effective_callback, user_invention_input=user_invention_input)
 
         if "error" in result:
             if progress_callback:

@@ -82,7 +82,7 @@ export function usePipeline() {
   }, []);
 
   const startAnalysis = useCallback(
-    async (file: File) => {
+    async (file: File, userInventionInput: string = "") => {
       const sessionId = generateId();
 
       const session: AnalysisSession = {
@@ -97,7 +97,7 @@ export function usePipeline() {
       setActiveSessionId(sessionId);
 
       try {
-        const { s3_key } = await uploadPdf(file);
+        const { s3_key } = await uploadPdf(file, userInventionInput);
         updateSession(sessionId, { s3Key: s3_key, status: 'running' });
 
         wsRef.current = connectPipeline(

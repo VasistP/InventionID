@@ -1,13 +1,14 @@
 import { useState, useRef, type DragEvent } from 'react';
 
 interface UploadAreaProps {
-  onUpload: (file: File) => void;
+  onUpload: (file: File, userInventionInput: string) => void;
   disabled?: boolean;
 }
 
 export function UploadArea({ onUpload, disabled }: UploadAreaProps) {
   const [dragOver, setDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [userInventionInput, setUserInventionInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   function handleDrop(e: DragEvent) {
@@ -26,8 +27,9 @@ export function UploadArea({ onUpload, disabled }: UploadAreaProps) {
 
   function handleSubmit() {
     if (selectedFile && !disabled) {
-      onUpload(selectedFile);
+      onUpload(selectedFile, userInventionInput);
       setSelectedFile(null);
+      setUserInventionInput('');
     }
   }
 
@@ -72,11 +74,25 @@ export function UploadArea({ onUpload, disabled }: UploadAreaProps) {
         )}
       </div>
 
+      <div className="w-full mt-6">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          What do you think your invention is? <span className="text-gray-400 font-normal">(optional)</span>
+        </label>
+        <textarea
+          value={userInventionInput}
+          onChange={(e) => setUserInventionInput(e.target.value)}
+          disabled={disabled}
+          rows={3}
+          placeholder="Briefly describe the invention in your own words..."
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none disabled:bg-gray-50 disabled:text-gray-400"
+        />
+      </div>
+
       {selectedFile && (
         <button
           onClick={handleSubmit}
           disabled={disabled}
-          className="mt-6 px-8 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+          className="mt-4 px-8 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
         >
           Analyze Document
         </button>
