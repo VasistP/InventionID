@@ -12,6 +12,10 @@ const classificationColors: Record<string, string> = {
   related: 'bg-blue-100 text-blue-700 border-blue-200',
 };
 
+const classificationLabels: Record<string, string> = {
+  blocking: 'Potentially Blocking',
+};
+
 export function PatentCard({ patent, animationIndex = 0 }: PatentCardProps) {
   const [expanded, setExpanded] = useState(false);
   const analysis = patent.analysis;
@@ -39,7 +43,7 @@ export function PatentCard({ patent, animationIndex = 0 }: PatentCardProps) {
         </div>
         {analysis && (
           <span className={`shrink-0 px-2 py-0.5 text-xs font-medium rounded border ${badgeColor}`}>
-            {classification}
+            {classificationLabels[classification] ?? classification}
           </span>
         )}
       </div>

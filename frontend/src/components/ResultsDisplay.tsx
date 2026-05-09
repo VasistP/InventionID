@@ -23,7 +23,7 @@ function formatDuration(seconds: number): string {
 const GROUP_ORDER = ['blocking', 'relevant', 'related'] as const;
 
 const groupStyles: Record<string, { label: string; color: string }> = {
-  blocking: { label: 'Blocking', color: 'text-red-700' },
+  blocking: { label: 'Potentially Blocking', color: 'text-red-700' },
   relevant: { label: 'Relevant', color: 'text-yellow-700' },
   related:  { label: 'Related',  color: 'text-blue-700' },
 };
@@ -142,12 +142,12 @@ export function ResultsDisplay({ report, progress, durationSeconds }: ResultsDis
 
       <SummaryHeader report={report} />
 
-      {report.run_metadata?.concept_map && (
-        <ConceptMapPanel conceptMap={report.run_metadata.concept_map} />
-      )}
-
       {report.run_metadata?.query_counts && Object.keys(report.run_metadata.query_counts).length > 0 && (
         <QueryCountsPanel queryCounts={report.run_metadata.query_counts} />
+      )}
+
+      {report.run_metadata?.concept_map && (
+        <ConceptMapPanel conceptMap={report.run_metadata.concept_map} />
       )}
 
       {report.patents.length > 0 && (

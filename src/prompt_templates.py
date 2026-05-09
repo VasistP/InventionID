@@ -234,8 +234,8 @@ Identify:
 Extract every significant technical concept. For each concept:
 - Assign a group: Materials/Components, Structure/Architecture, Process/Method, Properties/Function, or Problem/Field
 - Rate specificity using EXACTLY one of these three labels:
-  - "Too Specific": proprietary detail, chemical formula, model number, or academic theory that rarely appears in patent claims — generalize one level up
-  - "Well-placed": common enough to appear in many patents, specific enough to define a technical neighborhood when combined — keep as-is
+  - "Too Specific": proprietary detail, chemical formula, model number, or academic theory that rarely appears in patent claims — generalize one level up. **Also rate "Too Specific" if the term is an editorial metaphor or structural analogy coined by the authors (e.g., "brick-mortar structure", "interlocking network", "bottom-up assembly as used metaphorically) rather than a recognized technical term in the field. These only match patents that happened to use the same editorial choice and are useless as search anchors.**
+  - "Well-placed": common enough to appear in many patents, specific enough to define a technical neighborhood when combined — keep as-is. A term is Well-placed only if it is independently searchable in a patent database without relying on how the authors phrased it.
   - "Too Generic": a bare noun (e.g., "device", "system", "method") that matches millions of unrelated patents — must always be paired with another term
 - Add ONE patent-drafter synonym: the term a patent attorney would substitute in a claim. Must be a real, field-standard alternative. Do not invent terms.
 - Add 2-4 additional field-standard synonyms (interchangeable terms, acronyms, alternative names actually used in patent filings). Only include terms you are confident are field-standard.
@@ -313,8 +313,8 @@ Output ONLY the JSON object. No explanations or commentary.
         known_aspects = scratchpad.get("known_aspects", "")
         category = scratchpad.get("statutory_category", "")
 
-        broad_n = num_queries // 3 + (1 if num_queries % 3 > 0 else 0)
-        focused_n = num_queries // 3 + (1 if num_queries % 3 > 1 else 0)
+        broad_n = max(2, num_queries // 3)
+        focused_n = max(3, num_queries // 3 + (1 if num_queries % 3 > 0 else 0))
         narrow_n = num_queries - broad_n - focused_n
 
         return f"""You are a patent agent generating Google Patents search queries to find prior art.
@@ -362,19 +362,21 @@ USE: <term>, <term>, ...
 
 Before writing each query, scan every quoted term against the USE list. If any term is not there, replace it with the nearest USE-list equivalent or remove it.
 
-## STEP 3 — GENERATE {num_queries} QUERIES ACROSS THREE TIERS
+## STEP 3 — GENERATE QUERIES ACROSS THREE TIERS (target 7-{num_queries} total)
 
-Distribute queries: {broad_n} broad · {focused_n} focused · {narrow_n} narrow
+Suggested distribution: ~{broad_n} broad · ~{focused_n} focused · ~{narrow_n} narrow. **Quality over quantity: stop adding queries when you have confident §102 coverage. Do not pad to reach the maximum.**
 
-**Broad tier ({broad_n} queries):** 2-3 AND facets. Maximize recall of §102 prior art — anything "spot on" similar. Use wide OR synonym chains. At least one query per anchor keyword from Step 1.
+**Ordering rule: Put your best, most §102-focused query FIRST in each tier.** Later queries in a tier are secondary coverage — the first query in each tier must stand alone as the highest-recall option for that tier.
 
-**Focused tier ({focused_n} queries):** 3-4 AND facets with OR synonym chains. Target the core novelty axis. If a HOW axis exists, dedicate at least 2 of these queries to it.
+**Broad tier (~{broad_n} queries):** 2-3 AND facets. Maximize recall of §102 prior art — anything "spot on" similar. Use wide OR synonym chains. At least one query per anchor keyword from Step 1.
 
-**Narrow tier ({narrow_n} queries):** 4-5 AND facets. Highly specific to the most novel aspect. Combine WHAT and HOW axes together.
+**Focused tier (~{focused_n} queries):** 3-4 AND facets with OR synonym chains. Target the core novelty axis. If a HOW axis exists, dedicate at least 2 of these queries to it.
+
+**Narrow tier (~{narrow_n} queries):** 4-5 AND facets. Highly specific to the most novel aspect. Combine WHAT and HOW axes together. One well-constructed narrow query is better than three near-duplicates.
 
 **Anchor rotation rule:** Each of the 3 anchor keywords must appear in at least 2 queries. Spread them — don't cluster all anchors in the same query.
 
-**Diversity rule:** No two queries may share the same 3 core terms. Before writing query N, check it against queries 1 through N-1. If there is a near-duplicate, rework one of them to emphasize a different concept group or synonym choice.
+**Diversity rule:** No two queries may share the same 3 core terms. Before writing query N, check it against queries 1 through N-1. If there is a near-duplicate, drop the weaker one rather than keeping both.
 
 ## QUERY FORMAT RULES
 - Use AND, OR, "", and () operators only
@@ -396,11 +398,11 @@ COVERAGE CHECK
 ```
 
 ## OUTPUT FORMAT
-Output the AVOID/USE lists (Step 1), then the coverage check (Step 4), then a Python list of exactly {num_queries} query strings as the LAST element:
+Output the AVOID/USE lists (Step 1), then the coverage check (Step 4), then a Python list of **7 to {num_queries} query strings** as the LAST element:
 
-["query 1", "query 2", ..., "query {num_queries}"]
+["query 1", "query 2", ..., "query N"]
 
-The final Python list must be the last thing in your response so it can be parsed directly.
+The final Python list must be the last thing in your response so it can be parsed directly. The list must contain between 7 and {num_queries} strings — no fewer than 7, no more than {num_queries}.
 """
 
 #         return f"""You are a patent agent generating Google Patent search queries to find prior art for this invention.

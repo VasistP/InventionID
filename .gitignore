@@ -99,3 +99,4 @@ cached/
 # *.7z
 config/app.env
 .claude
+.codex

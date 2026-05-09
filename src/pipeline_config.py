@@ -21,8 +21,8 @@ MODEL_ANALYSIS = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
 
 # ── Search ────────────────────────────────────────────────────────────────────
-# How many distinct search queries to generate from the invention description
-NUM_SEARCH_QUERIES = 15
+# Maximum search queries to generate (pipeline targets 7-10, capped here)
+NUM_SEARCH_QUERIES = 10
 
 # Maximum patent results returned per query (Google Patents via SerpAPI)
 MAX_RESULTS_PER_QUERY = 20
